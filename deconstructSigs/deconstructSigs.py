@@ -29,35 +29,58 @@ class DeconstructSigs:
         'G': 'C'
     }
 
-    def __init__(self, mafs_folder=None, maf_file_path=None):
+    def __init__(self, mafs_folder=None, maf_file_path=None, verbose=False):
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
+        self.verbose = verbose
 
         self.cosmic_signatures_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                        'data/signatures_probabilities.txt')
 
         self.__setup_subs_dict()
         self.__load_cosmic_signatures()
-        self.__load_mafs()
 
-    def __setup_subs_dict(self):
-        """
-        A dictionary to keep track of the SNVs and the trinucleotide context in which SNVs occurred in order to
-        build a mutational signature for the samples
-        """
-        self.subs_dict = defaultdict(lambda: defaultdict(int))
-        for sub in [self.__standardize_subs('C', 'A'),
-                    self.__standardize_subs('C', 'G'),
-                    self.__standardize_subs('C', 'T'),
-                    self.__standardize_subs('T', 'A'),
-                    self.__standardize_subs('T', 'C'),
-                    self.__standardize_subs('T', 'G')]:
-            ref = sub[0]
-            for left_bp in ['A', 'C', 'T', 'G']:
-                for right_bp in ['A', 'C', 'T', 'G']:
-                    trinuc_context = '{}{}{}'.format(left_bp, ref, right_bp)
-                    self.subs_dict[sub][trinuc_context] = 0
+        # Remove unnecessary columns from the cosmic signatures data and make the S matrix
+        self.S = np.array(self.cosmic_signatures.select(
+            lambda x: not re.search("(Substitution Type)|(Trinucleotide)|(Somatic Mutation Type)|(Unnamed)", x),
+            axis=1))
+
+        self.__load_mafs()
+        self.signature_names = ['Signature 1', 'Signature 2', 'Signature 3', 'Signature 4', 'Signature 5',
+                                'Signature 6', 'Signature 7', 'Signature 8', 'Signature 9', 'Signature 10',
+                                'Signature 11', 'Signature 12', 'Signature 13', 'Signature 14', 'Signature 15',
+                                'Signature 16', 'Signature 17', 'Signature 18', 'Signature 19', 'Signature 20',
+                                'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
+                                'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
+
+    def which_signatures(self, signatures_limit=None):
+        # If no signature limit is provided, simply set it to the number of signatures
+        if signatures_limit is None:
+            signatures_limit = len(self.S)
+
+        iteration = 0
+        _, flat_counts = self.__get_flat_bins_and_counts()
+        tumor = np.array(flat_counts)
+        # Normalize the tumor data
+        T = tumor / tumor.max(axis=0)
+        w = self.__seed_weights(tumor, self.S)
+        error_diff = math.inf
+        error_threshold = 1e-3
+        while error_diff > error_threshold:
+            iteration = iteration + 1
+            error_pre = self.__get_error(T, self.S, w)
+            self.__status("Iter {}:\n\t Pre error: {}".format(iteration, error_pre))
+            w = self.__updateW_GR(T, self.S, w, signatures_limit=signatures_limit)
+            error_post = self.__get_error(T, self.S, w)
+            self.__status("\t Post error: {}".format(error_post))
+            error_diff = (error_pre - error_post) / error_pre
+
+        normalized_weights = w / sum(w)
+
+        for i, weight in enumerate(normalized_weights):
+            if weight != 0:
+                sys.stdout.write("{}: {}\n".format(self.signature_names[i], weight))
 
     def get_num_samples(self):
         return self.num_samples
@@ -71,12 +94,7 @@ class DeconstructSigs:
         colors = itertools.cycle(['#22bbff', 'k', 'r', '.6', '#88cc44', '#ffaaaa'])
 
         # Minor labels for trinucleotide bins and respective counts in flat arrays
-        flat_bins = []
-        flat_counts = []
-        for subs, contexts in self.subs_dict.items():
-            for context in sorted(contexts):
-                flat_bins.append(context)
-                flat_counts.append(contexts[context])
+        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
 
         graph = 0
         max_counts = max(flat_counts)+5
@@ -117,6 +135,36 @@ class DeconstructSigs:
 
         plt.show()
 
+    def __status(self, text):
+        if self.verbose:
+            sys.stdout.write(text)
+
+    def __get_flat_bins_and_counts(self):
+        flat_bins = []
+        flat_counts = []
+        for subs, contexts in self.subs_dict.items():
+            for context in sorted(contexts):
+                flat_bins.append(context)
+                flat_counts.append(contexts[context])
+        return flat_bins, flat_counts
+
+    def __setup_subs_dict(self):
+        """
+        A dictionary to keep track of the SNVs and the trinucleotide context in which SNVs occurred in order to
+        build a mutational signature for the samples
+        """
+        self.subs_dict = defaultdict(lambda: defaultdict(int))
+        for sub in [self.__standardize_subs('C', 'A'),
+                    self.__standardize_subs('C', 'G'),
+                    self.__standardize_subs('C', 'T'),
+                    self.__standardize_subs('T', 'A'),
+                    self.__standardize_subs('T', 'C'),
+                    self.__standardize_subs('T', 'G')]:
+            ref = sub[0]
+            for left_bp in ['A', 'C', 'T', 'G']:
+                for right_bp in ['A', 'C', 'T', 'G']:
+                    trinuc_context = '{}{}{}'.format(left_bp, ref, right_bp)
+                    self.subs_dict[sub][trinuc_context] = 0
 
     def __load_cosmic_signatures(self):
         self.cosmic_signatures = pd.read_csv('{}'.format(self.cosmic_signatures_filepath), sep='\t', engine='python')
@@ -167,3 +215,78 @@ class DeconstructSigs:
                                    DeconstructSigs.pair[trinuc[2]])
         else:
             return trinuc
+
+    def __get_error(self, tumor, signatures, w):
+        """
+        Calculate the SSE between the true tumor signature and the calculated linear combination of diferent signatures
+        """
+        w_norm = w / sum(w)
+        product = w_norm.dot(np.transpose(signatures))
+        error = tumor - product
+        squared_error_sum = np.sum(error.dot(np.transpose(error)))
+        return squared_error_sum
+
+    def __updateW_GR(self, tumor, signatures, w, signatures_limit, bound=100):
+        # The number of signatures already being used in the current linear combination of signatures
+        num_sigs_present = len([weight for weight in w if weight != 0])
+
+        # The total number of signatures to choose from
+        num_sigs = np.shape(signatures)[1]
+
+        # The current sum of squares error given the present weights assigned for each signature
+        error_old = self.__get_error(tumor, signatures, w)
+
+        # Which weight indices to allow changes for
+        if num_sigs_present < signatures_limit:
+            # If we haven't reached the limit we can test adjusting all weights
+            changeable_indices = range(num_sigs)
+        else:
+            # Work with the signatures already present if we have reached our maximum number
+            # of contributing signatures allowed
+            changeable_indices = np.nonzero(w)[0]
+
+        # zero square matrix of num signatures dimensions
+        v = np.zeros((num_sigs, num_sigs))
+
+        # 1 * num signatures vector with values preset to infinity
+        new_squared_errors = np.empty(num_sigs, )
+        new_squared_errors.fill(math.inf)
+
+        # Only consider adjusting the weights which are allowed to change
+        for i in changeable_indices:
+            # Find the weight x for the ith signature that minimizes the sum of squared error
+            def to_minimize(x):
+                # Initialize a temporary zero vector of length number of signatures
+                tmp = np.zeros((1, num_sigs))
+                tmp[0, i] = x
+                return self.__get_error(tumor, signatures, w + tmp[0,])
+
+            error_minimizer = minimize_scalar(to_minimize, bounds=(-w[i], bound), method="bounded").x
+            v[i, i] = error_minimizer
+            w_new = w + v[i]
+            self.__get_error(tumor, signatures, w)
+            new_squared_errors[i] = self.__get_error(tumor, signatures, w_new)
+
+        # Find which signature can be added to the weights vector to best reduce the error
+        min_new_squared_error = min(new_squared_errors)
+        index_of_min = np.argmin(new_squared_errors, axis=0)
+
+        # Update that signature within the weights vector with the new value that best reduces the overall error
+        if min_new_squared_error < error_old:
+            w[index_of_min] = w[index_of_min] + v[index_of_min, index_of_min]
+
+        return (w)
+
+    def __seed_weights(self, tumor, signatures):
+        ss_errors = np.empty(30, )
+        ss_errors.fill(math.inf)
+        for i in range(30):
+            tmp_weights = np.zeros(30)
+            tmp_weights[i] = 1
+            error = self.__get_error(tumor, signatures, tmp_weights)
+            ss_errors[i] = error
+        # Seed index that minimizes sum of squared error metric
+        seed_index = np.argmin(ss_errors, axis=0)
+        final_weights = np.zeros(30)
+        final_weights[seed_index] = 1
+        return final_weights
