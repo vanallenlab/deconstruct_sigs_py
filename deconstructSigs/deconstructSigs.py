@@ -47,6 +47,8 @@ class DeconstructSigs:
             axis=1))
 
         self.__load_mafs()
+
+        print('subs dict', self.subs_dict['C>A'])
         self.signature_names = ['Signature 1', 'Signature 2', 'Signature 3', 'Signature 4', 'Signature 5',
                                 'Signature 6', 'Signature 7', 'Signature 8', 'Signature 9', 'Signature 10',
                                 'Signature 11', 'Signature 12', 'Signature 13', 'Signature 14', 'Signature 15',
@@ -61,43 +63,49 @@ class DeconstructSigs:
 
         iteration = 0
         _, flat_counts = self.__get_flat_bins_and_counts()
+        print('flat counts', flat_counts[0:3])
         tumor = np.array(flat_counts)
         # Normalize the tumor data
         T = tumor / tumor.max(axis=0)
-        w = self.__seed_weights(tumor, self.S)
+        w = self.__seed_weights(T, self.S)
         error_diff = math.inf
         error_threshold = 1e-3
         while error_diff > error_threshold:
             iteration = iteration + 1
             error_pre = self.__get_error(T, self.S, w)
-            self.__status("Iter {}:\n\t Pre error: {}".format(iteration, error_pre))
+            self.__status("Iter {}:\n\t Pre error: {}\n".format(iteration, error_pre))
             w = self.__updateW_GR(T, self.S, w, signatures_limit=signatures_limit)
             error_post = self.__get_error(T, self.S, w)
-            self.__status("\t Post error: {}".format(error_post))
+            self.__status("\t Post error: {}\n".format(error_post))
             error_diff = (error_pre - error_post) / error_pre
 
         normalized_weights = w / sum(w)
-
         for i, weight in enumerate(normalized_weights):
             if weight != 0:
                 sys.stdout.write("{}: {}\n".format(self.signature_names[i], weight))
 
+        flat_bins, _ = self.__get_flat_bins_and_counts()
+        reconstructed_tumor_norm = self.__get_reconstructed_tumor(self.S, w)
+        self.__plot_counts(flat_bins, reconstructed_tumor_norm*max(tumor), title='Reconstructed Tumor Profile')
+
     def get_num_samples(self):
         return self.num_samples
 
-    def plot_counts(self):
+    def plot_sample_profile(self):
+        # Minor labels for trinucleotide bins and respective counts in flat arrays
+        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
+        self.__plot_counts(flat_bins, flat_counts, title='SNP Counts by Trinucleotide Context')
+
+    def __plot_counts(self, flat_bins, flat_counts, title='Figure'):
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
-        fig.canvas.set_window_title('SNP Counts by Trinucleotide Context')
+        fig.canvas.set_window_title(title)
 
         # Set up some colors and markers to cycle through...
         colors = itertools.cycle(['#22bbff', 'k', 'r', '.6', '#88cc44', '#ffaaaa'])
 
-        # Minor labels for trinucleotide bins and respective counts in flat arrays
-        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
-
         graph = 0
-        max_counts = max(flat_counts)+5
+        max_counts = max(flat_counts)*1.05
         for ax, data, color in zip(axes, [1, 2, 3, 4, 5, 6], colors):
             x = np.arange(16) - 10
             counts = flat_counts[0 + graph * 16:16 + graph * 16]
@@ -216,13 +224,17 @@ class DeconstructSigs:
         else:
             return trinuc
 
-    def __get_error(self, tumor, signatures, w):
-        """
-        Calculate the SSE between the true tumor signature and the calculated linear combination of diferent signatures
-        """
+    @staticmethod
+    def __get_reconstructed_tumor(signatures, w):
         w_norm = w / sum(w)
-        product = w_norm.dot(np.transpose(signatures))
-        error = tumor - product
+        return w_norm.dot(np.transpose(signatures))
+
+    def __get_error(self, T, signatures, w, verbose=False):
+        """
+        Calculate the SSE between the true tumor signature and the calculated linear combination of different signatures
+        """
+        reconstructed_tumor = self.__get_reconstructed_tumor(signatures, w)
+        error = T - reconstructed_tumor
         squared_error_sum = np.sum(error.dot(np.transpose(error)))
         return squared_error_sum
 
@@ -264,7 +276,6 @@ class DeconstructSigs:
             error_minimizer = minimize_scalar(to_minimize, bounds=(-w[i], bound), method="bounded").x
             v[i, i] = error_minimizer
             w_new = w + v[i]
-            self.__get_error(tumor, signatures, w)
             new_squared_errors[i] = self.__get_error(tumor, signatures, w_new)
 
         # Find which signature can be added to the weights vector to best reduce the error
@@ -275,7 +286,7 @@ class DeconstructSigs:
         if min_new_squared_error < error_old:
             w[index_of_min] = w[index_of_min] + v[index_of_min, index_of_min]
 
-        return (w)
+        return w
 
     def __seed_weights(self, tumor, signatures):
         ss_errors = np.empty(30, )
@@ -283,10 +294,13 @@ class DeconstructSigs:
         for i in range(30):
             tmp_weights = np.zeros(30)
             tmp_weights[i] = 1
-            error = self.__get_error(tumor, signatures, tmp_weights)
+            error = self.__get_error(tumor, signatures, tmp_weights, verbose=True)
             ss_errors[i] = error
         # Seed index that minimizes sum of squared error metric
         seed_index = np.argmin(ss_errors, axis=0)
+        print('tumor', tumor[0:3])
+        print('ss errors', ss_errors)
+        print('seed index', seed_index)
         final_weights = np.zeros(30)
         final_weights[seed_index] = 1
         return final_weights
