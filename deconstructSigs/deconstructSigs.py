@@ -29,7 +29,7 @@ class DeconstructSigs:
         'G': 'C'
     }
 
-    def __init__(self, mafs_folder=None, maf_file_path=None, verbose=False):
+    def __init__(self, mafs_folder=None, maf_file_path=None, verbose=False, cutoff=0.06):
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
@@ -47,8 +47,6 @@ class DeconstructSigs:
             axis=1))
 
         self.__load_mafs()
-
-        print('subs dict', self.subs_dict['C>A'])
         self.signature_names = ['Signature 1', 'Signature 2', 'Signature 3', 'Signature 4', 'Signature 5',
                                 'Signature 6', 'Signature 7', 'Signature 8', 'Signature 9', 'Signature 10',
                                 'Signature 11', 'Signature 12', 'Signature 13', 'Signature 14', 'Signature 15',
@@ -56,37 +54,75 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
+    def __calculate_ignorable_signatures(self):
+        somatic_mutation_counts = defaultdict(int)
+        for subs, contexts in self.subs_dict.items():
+            for context in sorted(contexts):
+                count = self.subs_dict[subs][context]
+                somatic_mutation_counts['{}[{}]{}'.format(context[0], subs, context[2])] = count
+        total_counts = sum(somatic_mutation_counts.values())
+
+        mutations_not_present_in_tumor = [sm for sm in somatic_mutation_counts
+                                          if somatic_mutation_counts[sm]/total_counts < 0.01]
+        signatures_to_ignore = []
+
+        for i, signature_name in enumerate(self.signature_names):
+            context_fractions = self.cosmic_signatures[signature_name]
+            for j, cf in enumerate(context_fractions):
+                if cf > 0.2:
+                    somatic_mutation_type = self.cosmic_signatures['Somatic Mutation Type'][j]
+                    if somatic_mutation_type in mutations_not_present_in_tumor:
+                        signatures_to_ignore.append({'name': signature_name,
+                                                     'index': i,
+                                                     'outlier_context': somatic_mutation_type})
+                    break
+        return signatures_to_ignore
+
     def which_signatures(self, signatures_limit=None):
         # If no signature limit is provided, simply set it to the number of signatures
         if signatures_limit is None:
             signatures_limit = len(self.S)
 
+        # Remove signatures from possibilities if they have a "strong" peak for a context that
+        # is not seen in the tumor sample
+        ignorable_signatures = self.__calculate_ignorable_signatures()
+        ignorable_indices = [ig['index'] for ig in ignorable_signatures]
         iteration = 0
-        _, flat_counts = self.__get_flat_bins_and_counts()
-        print('flat counts', flat_counts[0:3])
-        tumor = np.array(flat_counts)
+        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
+
+        T = np.array(flat_counts)
+
         # Normalize the tumor data
-        T = tumor / tumor.max(axis=0)
         w = self.__seed_weights(T, self.S)
         error_diff = math.inf
         error_threshold = 1e-3
         while error_diff > error_threshold:
+            self.__print_normalized_weights(w)
             iteration = iteration + 1
             error_pre = self.__get_error(T, self.S, w)
+            if error_pre == 0:
+                break
             self.__status("Iter {}:\n\t Pre error: {}\n".format(iteration, error_pre))
-            w = self.__updateW_GR(T, self.S, w, signatures_limit=signatures_limit)
+            w = self.__updateW_GR(T, self.S, w,
+                                  signatures_limit=signatures_limit,
+                                  ignorable_signature_indices=ignorable_indices)
             error_post = self.__get_error(T, self.S, w)
             self.__status("\t Post error: {}\n".format(error_post))
             error_diff = (error_pre - error_post) / error_pre
 
+        self.__print_normalized_weights(w)
+
+        flat_bins, _ = self.__get_flat_bins_and_counts()
+        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, w)
+        self.__plot_counts(flat_bins, reconstructed_tumor_profile*sum(T), title='Reconstructed Tumor Profile')
+        self.plot_sample_profile()
+        plt.show()
+
+    def __print_normalized_weights(self, w):
         normalized_weights = w / sum(w)
         for i, weight in enumerate(normalized_weights):
             if weight != 0:
                 sys.stdout.write("{}: {}\n".format(self.signature_names[i], weight))
-
-        flat_bins, _ = self.__get_flat_bins_and_counts()
-        reconstructed_tumor_norm = self.__get_reconstructed_tumor(self.S, w)
-        self.__plot_counts(flat_bins, reconstructed_tumor_norm*max(tumor), title='Reconstructed Tumor Profile')
 
     def get_num_samples(self):
         return self.num_samples
@@ -140,8 +176,6 @@ class DeconstructSigs:
 
         # Merge subplots together so that they look like one graph
         fig.subplots_adjust(wspace=-.03)
-
-        plt.show()
 
     def __status(self, text):
         if self.verbose:
@@ -225,20 +259,23 @@ class DeconstructSigs:
             return trinuc
 
     @staticmethod
-    def __get_reconstructed_tumor(signatures, w):
-        w_norm = w / sum(w)
+    def __get_reconstructed_tumor_profile(signatures, w):
+        w_norm = w/sum(w)
         return w_norm.dot(np.transpose(signatures))
 
     def __get_error(self, T, signatures, w, verbose=False):
         """
         Calculate the SSE between the true tumor signature and the calculated linear combination of different signatures
         """
-        reconstructed_tumor = self.__get_reconstructed_tumor(signatures, w)
-        error = T - reconstructed_tumor
+        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(signatures, w)
+        error = T - reconstructed_tumor_profile*sum(T)
         squared_error_sum = np.sum(error.dot(np.transpose(error)))
         return squared_error_sum
 
-    def __updateW_GR(self, tumor, signatures, w, signatures_limit, bound=100):
+    def __updateW_GR(self, tumor, signatures, w, signatures_limit, bound=100, ignorable_signature_indices=None):
+        if ignorable_signature_indices is None:
+            ignorable_signature_indices = []
+
         # The number of signatures already being used in the current linear combination of signatures
         num_sigs_present = len([weight for weight in w if weight != 0])
 
@@ -256,6 +293,7 @@ class DeconstructSigs:
             # Work with the signatures already present if we have reached our maximum number
             # of contributing signatures allowed
             changeable_indices = np.nonzero(w)[0]
+        changeable_indices = [i for i in changeable_indices if i not in ignorable_signature_indices]
 
         # zero square matrix of num signatures dimensions
         v = np.zeros((num_sigs, num_sigs))
@@ -298,9 +336,10 @@ class DeconstructSigs:
             ss_errors[i] = error
         # Seed index that minimizes sum of squared error metric
         seed_index = np.argmin(ss_errors, axis=0)
-        print('tumor', tumor[0:3])
-        print('ss errors', ss_errors)
-        print('seed index', seed_index)
+        #seed_index = random.randrange(30)
+        #print('tumor', tumor[0:3])
+        #print('ss errors', ss_errors)
+        #print('seed index', seed_index)
         final_weights = np.zeros(30)
         final_weights[seed_index] = 1
         return final_weights
