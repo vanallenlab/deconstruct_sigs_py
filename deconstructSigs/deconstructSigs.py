@@ -1,23 +1,15 @@
 import re
-import scipy
-from scipy.stats import ttest_ind
-
 import numpy as np
-import glob
 import sys
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
-from datetime import datetime
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 import itertools
-import scipy.stats
-import random
 from matplotlib import ticker
 import math
 from scipy.optimize import minimize_scalar
-from sklearn.preprocessing import normalize
 
 
 class DeconstructSigs:
@@ -29,7 +21,7 @@ class DeconstructSigs:
         'G': 'C'
     }
 
-    def __init__(self, mafs_folder=None, maf_file_path=None, verbose=False, cutoff=0.06):
+    def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, verbose=False, cutoff=0.06):
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
@@ -46,7 +38,11 @@ class DeconstructSigs:
             lambda x: not re.search("(Substitution Type)|(Trinucleotide)|(Somatic Mutation Type)|(Unnamed)", x),
             axis=1))
 
-        self.__load_mafs()
+        if context_counts is None:
+            self.__load_mafs()
+        else:
+            self.__add_context_counts_to_subs_dict(context_counts)
+
         self.signature_names = ['Signature 1', 'Signature 2', 'Signature 3', 'Signature 4', 'Signature 5',
                                 'Signature 6', 'Signature 7', 'Signature 8', 'Signature 9', 'Signature 10',
                                 'Signature 11', 'Signature 12', 'Signature 13', 'Signature 14', 'Signature 15',
@@ -54,7 +50,19 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
+    def __add_context_counts_to_subs_dict(self, context_counts):
+        """Contexts should be of the form C[A>G]T"""
+        for context, count in context_counts.items():
+            substitution = context[2:5]
+            trinuc = '{}{}{}'.format(context[0], context[2], context[6])
+            self.subs_dict[substitution][trinuc] = count
+
     def __calculate_ignorable_signatures(self):
+        """
+        Calculates which signatures can be ignored because they contain a peak for a context that is clearly not
+        seen in the tumor data.
+        :return: List of dicts of signatures to ignore along with contextual information for why.
+        """
         somatic_mutation_counts = defaultdict(int)
         for subs, contexts in self.subs_dict.items():
             for context in sorted(contexts):
@@ -62,23 +70,36 @@ class DeconstructSigs:
                 somatic_mutation_counts['{}[{}]{}'.format(context[0], subs, context[2])] = count
         total_counts = sum(somatic_mutation_counts.values())
 
-        mutations_not_present_in_tumor = [sm for sm in somatic_mutation_counts
-                                          if somatic_mutation_counts[sm]/total_counts < 0.01]
-        signatures_to_ignore = []
+        contexts_not_present_in_tumor = [sm for sm in somatic_mutation_counts
+                                        if somatic_mutation_counts[sm]/total_counts < 0.01]
 
+        signatures_to_ignore = []
         for i, signature_name in enumerate(self.signature_names):
             context_fractions = self.cosmic_signatures[signature_name]
             for j, cf in enumerate(context_fractions):
                 if cf > 0.2:
                     somatic_mutation_type = self.cosmic_signatures['Somatic Mutation Type'][j]
-                    if somatic_mutation_type in mutations_not_present_in_tumor:
+                    if somatic_mutation_type in contexts_not_present_in_tumor:
                         signatures_to_ignore.append({'name': signature_name,
                                                      'index': i,
-                                                     'outlier_context': somatic_mutation_type})
+                                                     'outlier_context': somatic_mutation_type,
+                                                     'context_fraction': cf})
                     break
         return signatures_to_ignore
 
     def which_signatures(self, signatures_limit=None):
+        w = self.__which_signatures(signatures_limit=signatures_limit)
+        self.__print_normalized_weights(w)
+
+        flat_bins, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
+        T = np.array(flat_counts)
+        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, w)
+        self.__plot_counts(flat_bins, reconstructed_tumor_profile*sum(T), title='Reconstructed Tumor Profile')
+        self.plot_sample_profile()
+        plt.show()
+
+    def __which_signatures(self, signatures_limit=None):
+        """Get the weights transformation vector"""
         # If no signature limit is provided, simply set it to the number of signatures
         if signatures_limit is None:
             signatures_limit = len(self.S)
@@ -86,12 +107,17 @@ class DeconstructSigs:
         # Remove signatures from possibilities if they have a "strong" peak for a context that
         # is not seen in the tumor sample
         ignorable_signatures = self.__calculate_ignorable_signatures()
+        self.__status('Signatures ignored because of outlying contexts: {}')
+        for s in ignorable_signatures:
+            self.__status('{} because of outlying context {} with fraction {}'.format(s.get('name'),
+                                                                                      s.get('outlier_context'),
+                                                                                      s.get('context_fraction')))
+
         ignorable_indices = [ig['index'] for ig in ignorable_signatures]
         iteration = 0
-        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
+        _, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
 
-        T = np.array(flat_counts)
-
+        T = np.array(flat_counts) / sum(flat_counts)
         # Normalize the tumor data
         w = self.__seed_weights(T, self.S)
         error_diff = math.inf
@@ -102,21 +128,14 @@ class DeconstructSigs:
             error_pre = self.__get_error(T, self.S, w)
             if error_pre == 0:
                 break
-            self.__status("Iter {}:\n\t Pre error: {}\n".format(iteration, error_pre))
+            self.__status("Iter {}:\n\t Pre error: {}".format(iteration, error_pre))
             w = self.__updateW_GR(T, self.S, w,
                                   signatures_limit=signatures_limit,
                                   ignorable_signature_indices=ignorable_indices)
             error_post = self.__get_error(T, self.S, w)
-            self.__status("\t Post error: {}\n".format(error_post))
+            self.__status("\t Post error: {}".format(error_post))
             error_diff = (error_pre - error_post) / error_pre
-
-        self.__print_normalized_weights(w)
-
-        flat_bins, _ = self.__get_flat_bins_and_counts()
-        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, w)
-        self.__plot_counts(flat_bins, reconstructed_tumor_profile*sum(T), title='Reconstructed Tumor Profile')
-        self.plot_sample_profile()
-        plt.show()
+        return w / sum(w)
 
     def __print_normalized_weights(self, w):
         normalized_weights = w / sum(w)
@@ -179,15 +198,28 @@ class DeconstructSigs:
 
     def __status(self, text):
         if self.verbose:
-            sys.stdout.write(text)
+            sys.stdout.write('{}\n'.format(text))
 
     def __get_flat_bins_and_counts(self):
         flat_bins = []
         flat_counts = []
-        for subs, contexts in self.subs_dict.items():
-            for context in sorted(contexts):
+        for subs, context_counts in self.subs_dict.items():
+            for context in sorted(context_counts):
                 flat_bins.append(context)
-                flat_counts.append(contexts[context])
+                flat_counts.append(context_counts[context])
+        return flat_bins, flat_counts
+
+    def __get_alphabetical_flat_bins_and_counts(self):
+        context_dict = defaultdict()
+        for subs, context_counts in self.subs_dict.items():
+            for context in context_counts:
+                context_dict['{}[{}]{}'.format(context[0], subs, context[2])] = context_counts[context]
+
+        flat_bins = []
+        flat_counts = []
+        for context in sorted(context_dict):
+            flat_bins.append(context)
+            flat_counts.append(context_dict.get(context))
         return flat_bins, flat_counts
 
     def __setup_subs_dict(self):
@@ -267,8 +299,9 @@ class DeconstructSigs:
         """
         Calculate the SSE between the true tumor signature and the calculated linear combination of different signatures
         """
+        T = T/sum(T)
         reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(signatures, w)
-        error = T - reconstructed_tumor_profile*sum(T)
+        error = T - reconstructed_tumor_profile
         squared_error_sum = np.sum(error.dot(np.transpose(error)))
         return squared_error_sum
 
@@ -330,7 +363,7 @@ class DeconstructSigs:
         ss_errors = np.empty(30, )
         ss_errors.fill(math.inf)
         for i in range(30):
-            tmp_weights = np.zeros(30)
+            tmp_weights = np.zeros((30,))
             tmp_weights[i] = 1
             error = self.__get_error(tumor, signatures, tmp_weights, verbose=True)
             ss_errors[i] = error
