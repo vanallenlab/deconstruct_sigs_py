@@ -3,5 +3,3 @@ numpy
 matplotlib
 scipy
 sklearn
-pybedtools
-bedtools

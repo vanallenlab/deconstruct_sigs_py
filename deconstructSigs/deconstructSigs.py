@@ -26,6 +26,7 @@ class DeconstructSigs:
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
         self.verbose = verbose
+        self.signature_cutoff = cutoff
 
         self.cosmic_signatures_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                        'data/signatures_probabilities.txt')
@@ -89,7 +90,7 @@ class DeconstructSigs:
 
     def which_signatures(self, signatures_limit=None):
         w = self.__which_signatures(signatures_limit=signatures_limit)
-        self.__print_normalized_weights(w)
+        self.__status(self.__print_normalized_weights(w))
 
         flat_bins, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
         T = np.array(flat_counts)
@@ -117,8 +118,9 @@ class DeconstructSigs:
         iteration = 0
         _, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
 
-        T = np.array(flat_counts) / sum(flat_counts)
         # Normalize the tumor data
+        T = np.array(flat_counts) / sum(flat_counts)
+
         w = self.__seed_weights(T, self.S)
         error_diff = math.inf
         error_threshold = 1e-3
@@ -129,19 +131,23 @@ class DeconstructSigs:
             if error_pre == 0:
                 break
             self.__status("Iter {}:\n\t Pre error: {}".format(iteration, error_pre))
-            w = self.__updateW_GR(T, self.S, w,
-                                  signatures_limit=signatures_limit,
-                                  ignorable_signature_indices=ignorable_indices)
+            w = self.__update_weights(T, self.S, w,
+                                      signatures_limit=signatures_limit,
+                                      ignorable_signature_indices=ignorable_indices)
             error_post = self.__get_error(T, self.S, w)
             self.__status("\t Post error: {}".format(error_post))
             error_diff = (error_pre - error_post) / error_pre
-        return w / sum(w)
+        normalized_weights = w/sum(w)
+
+        # Filter out any weights less than 0.6
+        np.place(normalized_weights, normalized_weights < self.signature_cutoff, 0)
+        return normalized_weights
 
     def __print_normalized_weights(self, w):
         normalized_weights = w / sum(w)
         for i, weight in enumerate(normalized_weights):
             if weight != 0:
-                sys.stdout.write("{}: {}\n".format(self.signature_names[i], weight))
+                self.__status("{}: {}\n".format(self.signature_names[i], weight))
 
     def get_num_samples(self):
         return self.num_samples
@@ -268,8 +274,12 @@ class DeconstructSigs:
 
     def __standardize_subs(self, ref, alt):
         """
-        :param ref:
-        A function that converts substitutions into their pyrimidine-based notation. Only C and T ref alleles."""
+        A function that converts substitutions into their pyrimidine-based notation. Only C and T ref alleles.
+        :param ref: The reference allele
+        :param alt: The alternate allele
+        :return If reference allele is pyrimidine, returns string in format 'ref>alt.' Otherwise, returns string in
+        format 'ref_complement_base>alt_complement>base' such that the ref is always a pyrimidine in the return value.
+        """
         if ref in ['G', 'A']:
             return '{}>{}'.format(DeconstructSigs.pair[ref], DeconstructSigs.pair[alt])
         else:
@@ -277,10 +287,11 @@ class DeconstructSigs:
 
     def __standardize_trinuc(self, trinuc):
         """
-        :param trinuc:
-        :return:
         A function that ensures trinucleotide contexts are centered around a pyrimidine, using complementary
-        # sequence to achieve this if necessary.
+        sequence to achieve this if necessary.
+        :param trinuc: A string representing a trinucleotide context, e.g. 'ACT' or 'GAT'
+        :return: An uppercase representation of the given trinucleotide if the center base pair is a pyrimidine,
+        otherwise an uppercase representation of the complementary sequence to the given trinucleotide.
         """
         trinuc = trinuc.upper()
         if trinuc[1] in ['G', 'A']:
@@ -295,17 +306,33 @@ class DeconstructSigs:
         w_norm = w/sum(w)
         return w_norm.dot(np.transpose(signatures))
 
-    def __get_error(self, T, signatures, w, verbose=False):
+    def __get_error(self, tumor, signatures, w):
         """
         Calculate the SSE between the true tumor signature and the calculated linear combination of different signatures
+        :param tumor: normalized array of shape (1, 96) where each entry is a mutation context fraction for the tumor
+        :param signatures: array of shape (96, num_signatures) where each row represents a mutation context and each
+        column is a signature
+        :param w: array of shape (num_signatures, 1) representing weight of each signature
+        :return: sum of squares error between reconstructed tumor context fractions and actual tumor profile
         """
-        T = T/sum(T)
+        tumor = tumor/sum(tumor)
         reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(signatures, w)
-        error = T - reconstructed_tumor_profile
+        error = tumor - reconstructed_tumor_profile
         squared_error_sum = np.sum(error.dot(np.transpose(error)))
         return squared_error_sum
 
-    def __updateW_GR(self, tumor, signatures, w, signatures_limit, bound=100, ignorable_signature_indices=None):
+    def __update_weights(self, tumor, signatures, w, signatures_limit, ignorable_signature_indices=None):
+        """
+        Given a set of seed weights, iteratively update the weights array with new values that shrink the sum of squares
+        error metric, converging eventually on an optimal weights array.
+        :param tumor: normalized array of shape (1, 96) where each entry is a mutation context fraction for the tumor
+        :param signatures: signatures: array of shape (96, num_signatures) where each row represents a mutation context
+        and each column is a signature
+        :param w: array of shape (num_signatures, 1) representing weight of each signature
+        :param signatures_limit: How many of the total signatures to consider when assigning weights
+        :param ignorable_signature_indices: an array of indices into the signatures array indicating which to ignore
+        :return:
+        """
         if ignorable_signature_indices is None:
             ignorable_signature_indices = []
 
@@ -318,13 +345,11 @@ class DeconstructSigs:
         # The current sum of squares error given the present weights assigned for each signature
         error_old = self.__get_error(tumor, signatures, w)
 
-        # Which weight indices to allow changes for
+        # Which weight indices to allow changes for; if we haven't reached the limit all weights are fair game
         if num_sigs_present < signatures_limit:
-            # If we haven't reached the limit we can test adjusting all weights
             changeable_indices = range(num_sigs)
         else:
-            # Work with the signatures already present if we have reached our maximum number
-            # of contributing signatures allowed
+            # Work with signatures already present if we have reached maximum number of contributing signatures allowed
             changeable_indices = np.nonzero(w)[0]
         changeable_indices = [i for i in changeable_indices if i not in ignorable_signature_indices]
 
@@ -344,35 +369,41 @@ class DeconstructSigs:
                 tmp[0, i] = x
                 return self.__get_error(tumor, signatures, w + tmp[0,])
 
-            error_minimizer = minimize_scalar(to_minimize, bounds=(-w[i], bound), method="bounded").x
+            error_minimizer = minimize_scalar(to_minimize, bounds=(-w[i], 1), method="bounded").x
             v[i, i] = error_minimizer
             w_new = w + v[i]
             new_squared_errors[i] = self.__get_error(tumor, signatures, w_new)
 
         # Find which signature can be added to the weights vector to best reduce the error
         min_new_squared_error = min(new_squared_errors)
-        index_of_min = np.argmin(new_squared_errors, axis=0)
 
         # Update that signature within the weights vector with the new value that best reduces the overall error
         if min_new_squared_error < error_old:
+            index_of_min = np.argmin(new_squared_errors, axis=0)
             w[index_of_min] = w[index_of_min] + v[index_of_min, index_of_min]
 
         return w
 
     def __seed_weights(self, tumor, signatures):
-        ss_errors = np.empty(30, )
+        """
+        Find which of the cosmic signatures best approximates the tumor signature, and seed the weights such that that
+        signature is assigned weight 1 and all other signatures are assigned weight zero. These are the seed weights
+        upon which the algorithm will build as it tries to further reduce sum of squared error.
+        :param tumor: normalized array of shape (1, 96) where each entry is a mutation context fraction
+        :param signatures: array of shape (96, num_signatures) where each row represents a mutation context and each
+        column is a signature
+        :return: normalized array of shape (num_signatures, 1) representing weight of each signature
+        """
+        num_sigs = len(signatures[0])
+        ss_errors = np.empty(num_sigs, )
         ss_errors.fill(math.inf)
-        for i in range(30):
-            tmp_weights = np.zeros((30,))
+        for i in range(num_sigs):
+            tmp_weights = np.zeros((num_sigs,))
             tmp_weights[i] = 1
-            error = self.__get_error(tumor, signatures, tmp_weights, verbose=True)
+            error = self.__get_error(tumor, signatures, tmp_weights)
             ss_errors[i] = error
         # Seed index that minimizes sum of squared error metric
         seed_index = np.argmin(ss_errors, axis=0)
-        #seed_index = random.randrange(30)
-        #print('tumor', tumor[0:3])
-        #print('ss errors', ss_errors)
-        #print('seed index', seed_index)
-        final_weights = np.zeros(30)
+        final_weights = np.zeros(num_sigs)
         final_weights[seed_index] = 1
         return final_weights
