@@ -10,9 +10,20 @@ import itertools
 from matplotlib import ticker
 import math
 from scipy.optimize import minimize_scalar
+from matplotlib.font_manager import FontProperties
+courier_font = FontProperties(family='courier new', weight='bold')
 
 
 class DeconstructSigs:
+    """A Python implementation of the DeconstructSigs algorithm described in
+    https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0893-4. Modeled after the R implementation
+    coded by Rachel Rosenthal which can be found at https://github.com/raerose01/deconstructSigs.
+
+    From the GenomeBiology description:
+        The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
+        reconstructs the mutational profile of a single tumor sample. It uses a multiple linear regression model with
+        the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense. """
+
     # base pairs dict
     pair = {
         'A': 'T',
@@ -21,12 +32,22 @@ class DeconstructSigs:
         'G': 'C'
     }
 
-    def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06):
+    def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06,
+                 outfile_path=None, analysis_handle=None):
+        """
+        Initialize a DeconstructSigs object.
+        :param mafs_folder: The path to a folder filled with multiple *.maf files to be used in the analysis
+        :param maf_file_path: The path to a single *.maf file to be used in the analysis
+        :param context_counts: A dictionary of context counts, with keys in the format 'A[C>A]A' and values integers
+        :param cutoff: Cutoff below which calculated signatures will be discarded
+        """
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
         self.verbose = False
         self.signature_cutoff = cutoff
+        self.outfile_path = outfile_path
+        self.analysis_handle = analysis_handle
 
         self.cosmic_signatures_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                        'data/signatures_probabilities.txt')
@@ -54,12 +75,43 @@ class DeconstructSigs:
 
     def which_signatures(self, signatures_limit=None, verbose=False):
         """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
-        tumor profile based on the calculated weights and the original tumor profile provided."""
+        tumor profile based on the calculated weights and the original tumor profile provided. Output a csv file with
+        user-provided name containing the calculated normalized weights for each of the signatures."""
+        # Turn on verbosity if user indicates verbose=True
         self.verbose = verbose
         w = self.__which_signatures(signatures_limit=signatures_limit)
-        self.__plot_reconstructed_profile(w)
-        self.plot_sample_profile()
+
+        # Generate signature weight outputs
+        if self.outfile_path:
+            f = open(os.path.join(self.outfile_path, '{}.csv'.format(self.analysis_handle or 'analysis')), 'xt')
+            for signature in self.signature_names:
+                f.write('{},'.format(signature))
+            f.write('\n')
+            for weight in w:
+                f.write('{},'.format(weight))
+            f.close()
+
+        # Data to plot
+        non_zero_weights = []
+        non_zero_labels = []
+        for i, weight in enumerate(w):
+            if weight != 0:
+                non_zero_labels.append(self.signature_names[i])
+                non_zero_weights.append(weight)
+
+        # Plot
+        plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.1f%%')
+        plt.axis('equal')
         plt.show()
+
+        # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot
+        y_max = self.plot_sample_profile()
+
+        # Plot the reconstructed tumor profile using the weights calculated above
+        self.__plot_reconstructed_profile(w, y_max=y_max)
+        plt.show()
+
+        # Turn verbosity back off again after method execution
         self.verbose = False
 
     def get_num_samples(self):
@@ -102,23 +154,6 @@ class DeconstructSigs:
                                                      'context_fraction': cf})
                     break
         return signatures_to_ignore
-
-    def __plot_reconstructed_profile(self, weights):
-        """Given a set of weights for each signature plot the reconstructed tumor profile using the cosmic signatures"""
-        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, weights)
-
-        # Reorder context counts, which were calculated using alphabetically sorted mutation contexts, to match the
-        # format that the plotting function expects, where they are ordered alphabetically first by substitution type.
-        alpha_flat_subs, _, alpha_flat_counts = self.__get_alphabetical_flat_bins_and_counts()
-        total_tumor_substitutions = sum(np.array(alpha_flat_counts))
-        reconstructed_counts_dict = defaultdict()
-        for i, subs_type in enumerate(alpha_flat_subs):
-            reconstructed_counts_dict[subs_type] = reconstructed_tumor_profile[i] * total_tumor_substitutions
-        reconstructed_tumor_counts = []
-        flat_subs, flat_bins, _ = self.__get_plottable_flat_bins_and_counts()
-        for subs_type in flat_subs:
-            reconstructed_tumor_counts.append(reconstructed_counts_dict[subs_type])
-        self.__plot_counts(flat_bins, reconstructed_tumor_counts, title='Reconstructed Tumor Profile')
 
     def __which_signatures(self, signatures_limit=None):
         """Get the weights transformation vector"""
@@ -178,11 +213,32 @@ class DeconstructSigs:
                 self.__status("\t\t{}: {}".format(self.signature_names[i], weight))
 
     def plot_sample_profile(self):
-        """Plot the substitution context profile for the original tumor sample given"""
+        """Plot the substitution context profile for the original tumor sample given. Return the maximum y value on the
+        y-axis in order to generate an appropriately scaled plot."""
         _, flat_bins, flat_counts = self.__get_plottable_flat_bins_and_counts()
-        self.__plot_counts(flat_bins, flat_counts, title='SNP Counts by Trinucleotide Context')
+        total_counts = sum(flat_counts)
+        fractions = [c/total_counts for c in flat_counts]
+        y_max = max(fractions) * 1.05
+        self.__plot_counts(flat_bins, fractions, y_max=y_max, title='SNP Counts by Trinucleotide Context')
+        return y_max
 
-    def __plot_counts(self, flat_bins, flat_counts, title='Figure'):
+    def __plot_reconstructed_profile(self, weights, y_max=1):
+        """Given a set of weights for each signature plot the reconstructed tumor profile using the cosmic signatures"""
+        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, weights)
+
+        # Reorder context counts, which were calculated using alphabetically sorted mutation contexts, to match the
+        # format that the plotting function expects, where they are ordered alphabetically first by substitution type.
+        alpha_flat_subs, _, alpha_flat_counts = self.__get_alphabetical_flat_bins_and_counts()
+        reconstructed_counts_dict = defaultdict()
+        for i, subs_type in enumerate(alpha_flat_subs):
+            reconstructed_counts_dict[subs_type] = reconstructed_tumor_profile[i]
+        reconstructed_tumor_counts = []
+        flat_subs, flat_bins, _ = self.__get_plottable_flat_bins_and_counts()
+        for subs_type in flat_subs:
+            reconstructed_tumor_counts.append(reconstructed_counts_dict[subs_type])
+        self.__plot_counts(flat_bins, reconstructed_tumor_counts, y_max=y_max, title='Reconstructed Tumor Profile')
+
+    def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1):
         """Plot subsitution counts per mutation context"""
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
@@ -192,7 +248,6 @@ class DeconstructSigs:
         colors = itertools.cycle(['#22bbff', 'k', 'r', '.6', '#88cc44', '#ffaaaa'])
 
         graph = 0
-        max_counts = max(flat_counts)*1.05
         for ax, data, color in zip(axes, [1, 2, 3, 4, 5, 6], colors):
             x = np.arange(16) - 10
             counts = flat_counts[0 + graph * 16:16 + graph * 16]
@@ -202,16 +257,16 @@ class DeconstructSigs:
             start, end = ax.get_xlim()
             ax.xaxis.set_ticks(np.arange(start, end, (end - start) / 16.5) + .85)
             ax.xaxis.set_major_formatter(ticker.FixedFormatter(new_ticks))
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)
-            # Standardize y-axis ranges across graphs
-            ax.set_ylim([0, max_counts])
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=90, font_properties=courier_font, color='k')
+            # Standardize y-axis ranges across subplots
+            ax.set_ylim([0, y_max])
             graph += 1
 
         # Set labels
-        axes[0].set_ylabel('Count')
+        axes[0].set_ylabel('Mutation Type Probability', fontweight='bold', color='k')
         labels = sorted(self.subs_dict.keys())
         for ax, label in zip(axes, labels):
-            ax.set_xlabel(label)
+            ax.set_xlabel(label, fontweight='bold', color='k', size=13)
 
         # Remove boundaries between subplots
         for ax in axes[1:]:
