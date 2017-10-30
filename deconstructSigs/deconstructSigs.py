@@ -21,11 +21,11 @@ class DeconstructSigs:
         'G': 'C'
     }
 
-    def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, verbose=False, cutoff=0.06):
+    def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06):
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
-        self.verbose = verbose
+        self.verbose = False
         self.signature_cutoff = cutoff
 
         self.cosmic_signatures_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -52,13 +52,15 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
-    def which_signatures(self, signatures_limit=None):
+    def which_signatures(self, signatures_limit=None, verbose=False):
         """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
         tumor profile based on the calculated weights and the original tumor profile provided."""
+        self.verbose = verbose
         w = self.__which_signatures(signatures_limit=signatures_limit)
         self.__plot_reconstructed_profile(w)
         self.plot_sample_profile()
         plt.show()
+        self.verbose = False
 
     def get_num_samples(self):
         """Return the number of samples that has been loaded into this DeconstructSigs instance"""
