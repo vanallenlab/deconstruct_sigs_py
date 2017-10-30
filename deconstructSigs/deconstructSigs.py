@@ -34,7 +34,8 @@ class DeconstructSigs:
         self.__setup_subs_dict()
         self.__load_cosmic_signatures()
 
-        # Remove unnecessary columns from the cosmic signatures data and make the S matrix
+        # Remove unnecessary columns from the cosmic signatures data and make the S matrix. Note: the substitution
+        # contexts are in alphabetical order (A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C... etc.)
         self.S = np.array(self.cosmic_signatures.select(
             lambda x: not re.search("(Substitution Type)|(Trinucleotide)|(Somatic Mutation Type)|(Unnamed)", x),
             axis=1))
@@ -89,13 +90,26 @@ class DeconstructSigs:
         return signatures_to_ignore
 
     def which_signatures(self, signatures_limit=None):
+        """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
+        tumor profile based on the caculated weights and the original tumor profile provided."""
         w = self.__which_signatures(signatures_limit=signatures_limit)
         self.__status(self.__print_normalized_weights(w))
 
-        flat_bins, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
-        T = np.array(flat_counts)
+        alpha_flat_subs, alpha_flat_bins, alpha_flat_counts = self.__get_alphabetical_flat_bins_and_counts()
         reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, w)
-        self.__plot_counts(flat_bins, reconstructed_tumor_profile*sum(T), title='Reconstructed Tumor Profile')
+
+        # Reorder context counts, which were calculated using alphabetically sorted mutation contexts, to match the
+        # format that the plotting function expects, where they are ordered alphabetically first by substitution type.
+        total_tumor_substitutions = sum(np.array(alpha_flat_counts))
+        reconstructed_counts_dict = defaultdict()
+        for i, subs_type in enumerate(alpha_flat_subs):
+            reconstructed_counts_dict[subs_type] = reconstructed_tumor_profile[i] * total_tumor_substitutions
+        reconstructed_tumor_counts = []
+        flat_subs, flat_bins, _ = self.__get_flat_bins_and_counts()
+        for subs_type in flat_subs:
+            reconstructed_tumor_counts.append(reconstructed_counts_dict[subs_type])
+
+        self.__plot_counts(flat_bins, reconstructed_tumor_counts, title='Reconstructed Tumor Profile')
         self.plot_sample_profile()
         plt.show()
 
@@ -116,7 +130,7 @@ class DeconstructSigs:
 
         ignorable_indices = [ig['index'] for ig in ignorable_signatures]
         iteration = 0
-        _, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
+        _, _, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
 
         # Normalize the tumor data
         T = np.array(flat_counts) / sum(flat_counts)
@@ -154,7 +168,7 @@ class DeconstructSigs:
 
     def plot_sample_profile(self):
         # Minor labels for trinucleotide bins and respective counts in flat arrays
-        flat_bins, flat_counts = self.__get_flat_bins_and_counts()
+        _, flat_bins, flat_counts = self.__get_flat_bins_and_counts()
         self.__plot_counts(flat_bins, flat_counts, title='SNP Counts by Trinucleotide Context')
 
     def __plot_counts(self, flat_bins, flat_counts, title='Figure'):
@@ -209,11 +223,13 @@ class DeconstructSigs:
     def __get_flat_bins_and_counts(self):
         flat_bins = []
         flat_counts = []
+        flat_subs = []
         for subs, context_counts in self.subs_dict.items():
             for context in sorted(context_counts):
                 flat_bins.append(context)
                 flat_counts.append(context_counts[context])
-        return flat_bins, flat_counts
+                flat_subs.append('{}[{}]{}'.format(context[0], subs, context[2]))
+        return flat_subs, flat_bins, flat_counts
 
     def __get_alphabetical_flat_bins_and_counts(self):
         context_dict = defaultdict()
@@ -226,7 +242,7 @@ class DeconstructSigs:
         for context in sorted(context_dict):
             flat_bins.append(context)
             flat_counts.append(context_dict.get(context))
-        return flat_bins, flat_counts
+        return sorted(context_dict), flat_bins, flat_counts
 
     def __setup_subs_dict(self):
         """
