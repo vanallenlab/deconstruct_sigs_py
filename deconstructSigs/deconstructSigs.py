@@ -52,6 +52,18 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
+    def which_signatures(self, signatures_limit=None):
+        """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
+        tumor profile based on the calculated weights and the original tumor profile provided."""
+        w = self.__which_signatures(signatures_limit=signatures_limit)
+        self.__plot_reconstructed_profile(w)
+        self.plot_sample_profile()
+        plt.show()
+
+    def get_num_samples(self):
+        """Return the number of samples that has been loaded into this DeconstructSigs instance"""
+        return self.num_samples
+
     def __add_context_counts_to_subs_dict(self, context_counts):
         """Contexts should be of the form C[A>G]T"""
         for context, count in context_counts.items():
@@ -89,29 +101,22 @@ class DeconstructSigs:
                     break
         return signatures_to_ignore
 
-    def which_signatures(self, signatures_limit=None):
-        """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
-        tumor profile based on the caculated weights and the original tumor profile provided."""
-        w = self.__which_signatures(signatures_limit=signatures_limit)
-        self.__status(self.__print_normalized_weights(w))
-
-        alpha_flat_subs, alpha_flat_bins, alpha_flat_counts = self.__get_alphabetical_flat_bins_and_counts()
-        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, w)
+    def __plot_reconstructed_profile(self, weights):
+        """Given a set of weights for each signature plot the reconstructed tumor profile using the cosmic signatures"""
+        reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, weights)
 
         # Reorder context counts, which were calculated using alphabetically sorted mutation contexts, to match the
         # format that the plotting function expects, where they are ordered alphabetically first by substitution type.
+        alpha_flat_subs, _, alpha_flat_counts = self.__get_alphabetical_flat_bins_and_counts()
         total_tumor_substitutions = sum(np.array(alpha_flat_counts))
         reconstructed_counts_dict = defaultdict()
         for i, subs_type in enumerate(alpha_flat_subs):
             reconstructed_counts_dict[subs_type] = reconstructed_tumor_profile[i] * total_tumor_substitutions
         reconstructed_tumor_counts = []
-        flat_subs, flat_bins, _ = self.__get_flat_bins_and_counts()
+        flat_subs, flat_bins, _ = self.__get_plottable_flat_bins_and_counts()
         for subs_type in flat_subs:
             reconstructed_tumor_counts.append(reconstructed_counts_dict[subs_type])
-
         self.__plot_counts(flat_bins, reconstructed_tumor_counts, title='Reconstructed Tumor Profile')
-        self.plot_sample_profile()
-        plt.show()
 
     def __which_signatures(self, signatures_limit=None):
         """Get the weights transformation vector"""
@@ -122,11 +127,12 @@ class DeconstructSigs:
         # Remove signatures from possibilities if they have a "strong" peak for a context that
         # is not seen in the tumor sample
         ignorable_signatures = self.__calculate_ignorable_signatures()
-        self.__status('Signatures ignored because of outlying contexts: {}')
+        self.__status('Signatures ignored because of outlying contexts:')
         for s in ignorable_signatures:
-            self.__status('{} because of outlying context {} with fraction {}'.format(s.get('name'),
-                                                                                      s.get('outlier_context'),
-                                                                                      s.get('context_fraction')))
+            self.__status('\t{} ignored because of outlying context {} with fraction {}'
+                          .format(s.get('name'),
+                                  s.get('outlier_context'),
+                                  s.get('context_fraction')))
 
         ignorable_indices = [ig['index'] for ig in ignorable_signatures]
         iteration = 0
@@ -136,21 +142,26 @@ class DeconstructSigs:
         T = np.array(flat_counts) / sum(flat_counts)
 
         w = self.__seed_weights(T, self.S)
+        self.__status("Initial seed weights assigned:")
+        self.__print_normalized_weights(w)
+
         error_diff = math.inf
         error_threshold = 1e-3
         while error_diff > error_threshold:
-            self.__print_normalized_weights(w)
             iteration = iteration + 1
             error_pre = self.__get_error(T, self.S, w)
             if error_pre == 0:
                 break
-            self.__status("Iter {}:\n\t Pre error: {}".format(iteration, error_pre))
+            self.__status("Iter {}:\n\tPre error: {}".format(iteration, error_pre))
             w = self.__update_weights(T, self.S, w,
                                       signatures_limit=signatures_limit,
                                       ignorable_signature_indices=ignorable_indices)
             error_post = self.__get_error(T, self.S, w)
-            self.__status("\t Post error: {}".format(error_post))
+            self.__status("\tPost error: {}".format(error_post))
             error_diff = (error_pre - error_post) / error_pre
+            self.__status("\tNew normalized weights: ")
+            self.__print_normalized_weights(w)
+
         normalized_weights = w/sum(w)
 
         # Filter out any weights less than 0.6
@@ -158,20 +169,19 @@ class DeconstructSigs:
         return normalized_weights
 
     def __print_normalized_weights(self, w):
+        """A standard way to print normalized weights given a vector of potentially not yet normalized weights"""
         normalized_weights = w / sum(w)
         for i, weight in enumerate(normalized_weights):
             if weight != 0:
-                self.__status("{}: {}\n".format(self.signature_names[i], weight))
-
-    def get_num_samples(self):
-        return self.num_samples
+                self.__status("\t\t{}: {}".format(self.signature_names[i], weight))
 
     def plot_sample_profile(self):
-        # Minor labels for trinucleotide bins and respective counts in flat arrays
-        _, flat_bins, flat_counts = self.__get_flat_bins_and_counts()
+        """Plot the substitution context profile for the original tumor sample given"""
+        _, flat_bins, flat_counts = self.__get_plottable_flat_bins_and_counts()
         self.__plot_counts(flat_bins, flat_counts, title='SNP Counts by Trinucleotide Context')
 
     def __plot_counts(self, flat_bins, flat_counts, title='Figure'):
+        """Plot subsitution counts per mutation context"""
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
         fig.canvas.set_window_title(title)
@@ -220,7 +230,8 @@ class DeconstructSigs:
         if self.verbose:
             sys.stdout.write('{}\n'.format(text))
 
-    def __get_flat_bins_and_counts(self):
+    def __get_plottable_flat_bins_and_counts(self):
+        """Return the tumor context counts in the order in which they are to be plotted."""
         flat_bins = []
         flat_counts = []
         flat_subs = []
@@ -232,6 +243,7 @@ class DeconstructSigs:
         return flat_subs, flat_bins, flat_counts
 
     def __get_alphabetical_flat_bins_and_counts(self):
+        """Return the tumor context counts in alphabetical order, as is used by the cosmic signatures file"""
         context_dict = defaultdict()
         for subs, context_counts in self.subs_dict.items():
             for context in context_counts:
@@ -263,9 +275,12 @@ class DeconstructSigs:
                     self.subs_dict[sub][trinuc_context] = 0
 
     def __load_cosmic_signatures(self):
+        """Load cosmic signatures file. Note that the mutation contexts are listed in alphabetical order:
+        (A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C... etc.) """
         self.cosmic_signatures = pd.read_csv('{}'.format(self.cosmic_signatures_filepath), sep='\t', engine='python')
 
     def __load_mafs(self):
+        """Load all *.maf files found in the directory provided"""
         if self.mafs_folder:
             for filename in [n for n in os.listdir(self.mafs_folder) if n.endswith('maf')]:
                 file_path = '{}/{}'.format(self.mafs_folder, filename)
@@ -274,7 +289,7 @@ class DeconstructSigs:
             self.__load_maf(self.maf_filepath)
 
     def __load_maf(self, file_path):
-        """Load a MAF file's trinucleotide counts."""
+        """Load a MAF file's trinucleotide counts for each type of substitution"""
         df = pd.read_csv(file_path, sep='\t', engine='python')
         for (idx, row) in df.iterrows():
             ref_context = row.ref_context  # context is the ref flanked by 10 bp on both the 5' and 3' sides
@@ -319,6 +334,7 @@ class DeconstructSigs:
 
     @staticmethod
     def __get_reconstructed_tumor_profile(signatures, w):
+        """Reconstruct a tumor profile given a set of signatures and a vector of signature weights"""
         w_norm = w/sum(w)
         return w_norm.dot(np.transpose(signatures))
 
@@ -339,15 +355,15 @@ class DeconstructSigs:
 
     def __update_weights(self, tumor, signatures, w, signatures_limit, ignorable_signature_indices=None):
         """
-        Given a set of seed weights, iteratively update the weights array with new values that shrink the sum of squares
-        error metric, converging eventually on an optimal weights array.
+        Given a set of initial weights, update the weights array with new values that shrink the sum of squares
+        error metric.
         :param tumor: normalized array of shape (1, 96) where each entry is a mutation context fraction for the tumor
         :param signatures: signatures: array of shape (96, num_signatures) where each row represents a mutation context
         and each column is a signature
         :param w: array of shape (num_signatures, 1) representing weight of each signature
         :param signatures_limit: How many of the total signatures to consider when assigning weights
         :param ignorable_signature_indices: an array of indices into the signatures array indicating which to ignore
-        :return:
+        :return: a new weights array, w.
         """
         if ignorable_signature_indices is None:
             ignorable_signature_indices = []
