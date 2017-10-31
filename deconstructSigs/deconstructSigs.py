@@ -49,11 +49,13 @@ class DeconstructSigs:
         self.outfile_path = outfile_path
         self.analysis_handle = analysis_handle
 
-        self.cosmic_signatures_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                                       'data/signatures_probabilities.txt')
+        package_path = os.path.dirname(os.path.realpath(__file__))
+        self.cosmic_signatures_filepath = os.path.join(package_path, 'data/signatures_probabilities.txt')
+        self.cosmic_signature_explanations_filepath = os.path.join(package_path, 'data/about_cosmic_sigs.txt')
 
         self.__setup_subs_dict()
         self.__load_cosmic_signatures()
+        self.__load_cosmic_signature_explanations()
 
         # Remove unnecessary columns from the cosmic signatures data and make the S matrix. Note: the substitution
         # contexts are in alphabetical order (A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C... etc.)
@@ -73,9 +75,30 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
-    def which_signatures(self, signatures_limit=None, verbose=False):
-        """Wrapper on __which_signatures function. Calls __which_signatures, then plots both the reconstructed
-        tumor profile based on the calculated weights and the original tumor profile provided. Output a csv file with
+    def plot_signatures(self, weights):
+        # Data to plot
+        non_zero_weights = []
+        non_zero_labels = []
+        for i, weight in enumerate(weights):
+            if weight != 0:
+                cosmic_signature = self.signature_names[i]
+                cosmic_explanation = self.cosmic_signature_explanations.Association[i]
+                non_zero_labels.append('{}\n({})'.format(cosmic_signature, cosmic_explanation))
+                non_zero_weights.append(weight)
+
+        # Plot
+        plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%')
+        plt.title('COSMIC Signatures Detected in Sample')
+        plt.axis('equal')
+
+        # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot
+        y_max = self.plot_sample_profile()
+        # Plot the reconstructed tumor profile using the weights provided
+        self.__plot_reconstructed_profile(weights, y_max=y_max)
+        plt.show()
+
+    def which_signatures(self, signatures_limit=None, associated=None, verbose=False):
+        """Wrapper on __which_signatures function. Calls __which_signatures, then outputs a csv file with
         user-provided name containing the calculated normalized weights for each of the signatures."""
         # Turn on verbosity if user indicates verbose=True
         self.verbose = verbose
@@ -91,28 +114,9 @@ class DeconstructSigs:
                 f.write('{},'.format(weight))
             f.close()
 
-        # Data to plot
-        non_zero_weights = []
-        non_zero_labels = []
-        for i, weight in enumerate(w):
-            if weight != 0:
-                non_zero_labels.append(self.signature_names[i])
-                non_zero_weights.append(weight)
-
-        # Plot
-        plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.1f%%')
-        plt.axis('equal')
-        plt.show()
-
-        # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot
-        y_max = self.plot_sample_profile()
-
-        # Plot the reconstructed tumor profile using the weights calculated above
-        self.__plot_reconstructed_profile(w, y_max=y_max)
-        plt.show()
-
         # Turn verbosity back off again after method execution
         self.verbose = False
+        return w
 
     def get_num_samples(self):
         """Return the number of samples that has been loaded into this DeconstructSigs instance"""
@@ -219,7 +223,7 @@ class DeconstructSigs:
         total_counts = sum(flat_counts)
         fractions = [c/total_counts for c in flat_counts]
         y_max = max(fractions) * 1.05
-        self.__plot_counts(flat_bins, fractions, y_max=y_max, title='SNP Counts by Trinucleotide Context')
+        self.__plot_counts(flat_bins, fractions, y_max=y_max, title='Tumor Profile')
         return y_max
 
     def __plot_reconstructed_profile(self, weights, y_max=1):
@@ -258,8 +262,11 @@ class DeconstructSigs:
             ax.xaxis.set_ticks(np.arange(start, end, (end - start) / 16.5) + .85)
             ax.xaxis.set_major_formatter(ticker.FixedFormatter(new_ticks))
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=90, font_properties=courier_font, color='k')
-            # Standardize y-axis ranges across subplots
+            # Standardize y-axis ranges across subplots (in percentage units)
             ax.set_ylim([0, y_max])
+            vals = ax.get_yticks()
+            ax.set_yticklabels(['{:3.0f}%'.format(val * 100) for val in vals])
+            plt.setp(ax.yaxis.get_majorticklabels(), color='k', fontweight='bold')
             graph += 1
 
         # Set labels
@@ -335,6 +342,12 @@ class DeconstructSigs:
         """Load cosmic signatures file. Note that the mutation contexts are listed in alphabetical order:
         (A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C... etc.) """
         self.cosmic_signatures = pd.read_csv('{}'.format(self.cosmic_signatures_filepath), sep='\t', engine='python')
+
+    def __load_cosmic_signature_explanations(self):
+        """Load about_cosmic_sigs.txt file, which contains correlations and proposed etiologies for the cosmic
+        signatures."""
+        self.cosmic_signature_explanations = pd.read_csv('{}'.format(self.cosmic_signature_explanations_filepath),
+                                                         sep='\t', engine='python')
 
     def __load_mafs(self):
         """Load all *.maf files found in the directory provided"""

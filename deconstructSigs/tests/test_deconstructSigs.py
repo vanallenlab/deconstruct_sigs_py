@@ -15,11 +15,11 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to one deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(1)
+        reconstructed_weights = ds.which_signatures(1)
         self.assertAlmostEqual(reconstructed_weights[0], weights[0], places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only one are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[0], weights[0], places=2)
 
     def test_two_signatures(self):
@@ -30,12 +30,12 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to two deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(2)
+        reconstructed_weights = ds.which_signatures(2)
         self.assertAlmostEqual(reconstructed_weights[0], .5, places=2)
         self.assertAlmostEqual(reconstructed_weights[5], .5, places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only two are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[0], .5, places=2)
         self.assertAlmostEqual(reconstructed_weights[5], .5, places=2)
 
@@ -48,13 +48,13 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to two deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(3)
+        reconstructed_weights = ds.which_signatures(3)
         self.assertAlmostEqual(reconstructed_weights[3], .6, places=2)
         self.assertAlmostEqual(reconstructed_weights[11], .25, places=2)
         self.assertAlmostEqual(reconstructed_weights[27], .15, places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only three are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[3], .6, places=2)
         self.assertAlmostEqual(reconstructed_weights[11], .25, places=2)
         self.assertAlmostEqual(reconstructed_weights[27], .15, places=2)
@@ -69,14 +69,14 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to four deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(4)
+        reconstructed_weights = ds.which_signatures(4)
         self.assertAlmostEqual(reconstructed_weights[6], .43, places=2)
         self.assertAlmostEqual(reconstructed_weights[10], .27, places=2)
         self.assertAlmostEqual(reconstructed_weights[25], .20, places=2)
         self.assertAlmostEqual(reconstructed_weights[29], .1, places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only fiour are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[6], .43, places=2)
         self.assertAlmostEqual(reconstructed_weights[10], .27, places=2)
         self.assertAlmostEqual(reconstructed_weights[25], .20, places=2)
@@ -93,7 +93,7 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to five deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(5)
+        reconstructed_weights = ds.which_signatures(5)
         self.assertAlmostEqual(reconstructed_weights[3], .19, places=2)
         self.assertAlmostEqual(reconstructed_weights[7], .4, places=2)
         self.assertAlmostEqual(reconstructed_weights[13], .24, places=2)
@@ -101,7 +101,7 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[23], .07, places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only five are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[3], .19, places=2)
         self.assertAlmostEqual(reconstructed_weights[7], .4, places=2)
         self.assertAlmostEqual(reconstructed_weights[13], .24, places=2)
@@ -119,7 +119,7 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to five deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(5)
+        reconstructed_weights = ds.which_signatures(5)
         self.assertAlmostEqual(reconstructed_weights[3], .19, places=2)
         self.assertAlmostEqual(reconstructed_weights[7], .41, places=2)
         self.assertAlmostEqual(reconstructed_weights[13], .24, places=2)
@@ -127,7 +127,7 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[23], 0, places=2)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only five necessary and significant
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[3], .19, places=2)
         self.assertAlmostEqual(reconstructed_weights[7], .41, places=2)
         self.assertAlmostEqual(reconstructed_weights[13], .24, places=2)
@@ -148,13 +148,13 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to two deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(3)
+        reconstructed_weights = ds.which_signatures(3)
         self.assertAlmostEqual(reconstructed_weights[3], .6, places=1)
         self.assertAlmostEqual(reconstructed_weights[11], .3, places=1)
         self.assertAlmostEqual(reconstructed_weights[27], .1, places=1)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only three are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[3], .6, places=1)
         self.assertAlmostEqual(reconstructed_weights[11], .3, places=1)
         self.assertAlmostEqual(reconstructed_weights[27], .1, places=1)
@@ -174,14 +174,14 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to four deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(4)
+        reconstructed_weights = ds.which_signatures(4)
         self.assertAlmostEqual(reconstructed_weights[6], .4, places=1)
         self.assertAlmostEqual(reconstructed_weights[10], .3, places=1)
         self.assertAlmostEqual(reconstructed_weights[25], .2, places=1)
         self.assertAlmostEqual(reconstructed_weights[29], .1, places=1)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only four are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[6], .4, places=1)
         self.assertAlmostEqual(reconstructed_weights[10], .3, places=1)
         self.assertAlmostEqual(reconstructed_weights[25], .2, places=1)
@@ -203,7 +203,7 @@ class TestDeconstructsig(unittest.TestCase):
         ds = DeconstructSigs(context_counts=context_counts)
 
         # Limit to two deconstructed signatures
-        reconstructed_weights = ds._DeconstructSigs__which_signatures(5)
+        reconstructed_weights = ds.which_signatures(5)
         self.assertAlmostEqual(reconstructed_weights[3], .4, places=1)
         self.assertAlmostEqual(reconstructed_weights[7], .2, places=1)
         self.assertAlmostEqual(reconstructed_weights[13], .2, places=1)
@@ -211,7 +211,7 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[23], .1, places=1)
 
         # Don't impose a signature limit to test that algorithm correctly deduces only five are necessary
-        reconstructed_weights = ds._DeconstructSigs__which_signatures()
+        reconstructed_weights = ds.which_signatures()
         self.assertAlmostEqual(reconstructed_weights[3], .4, places=1)
         self.assertAlmostEqual(reconstructed_weights[7], .2, places=1)
         self.assertAlmostEqual(reconstructed_weights[13], .2, places=1)
