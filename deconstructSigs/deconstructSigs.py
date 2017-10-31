@@ -75,7 +75,8 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
-    def plot_signatures(self, weights):
+    def plot_signatures(self, weights, explanations=False):
+        signature_weights = zip(self.signature_names, self.cosmic_signature_explanations.Association, weights)
         # Data to plot
         non_zero_weights = []
         non_zero_labels = []
@@ -83,11 +84,19 @@ class DeconstructSigs:
             if weight != 0:
                 cosmic_signature = self.signature_names[i]
                 cosmic_explanation = self.cosmic_signature_explanations.Association[i]
-                non_zero_labels.append('{}\n({})'.format(cosmic_signature, cosmic_explanation))
+                if explanations:
+                    label = '{}, {}%\n({})'.format(cosmic_signature, round(weight*100, 2), cosmic_explanation)
+                else:
+                    label = '{}'.format(cosmic_signature)
+                non_zero_labels.append(label)
                 non_zero_weights.append(weight)
 
         # Plot
-        plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%')
+        if explanations:
+            patches, texts = plt.pie(non_zero_weights, startangle=90, radius=0.2)
+            plt.legend(patches, non_zero_labels, loc="lower left")
+        else:
+            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%', radius=0.8)
         plt.title('COSMIC Signatures Detected in Sample')
         plt.axis('equal')
 
