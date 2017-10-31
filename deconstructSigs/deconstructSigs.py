@@ -80,10 +80,8 @@ class DeconstructSigs:
         # Data to plot
         non_zero_weights = []
         non_zero_labels = []
-        for i, weight in enumerate(weights):
+        for cosmic_signature, cosmic_explanation, weight in sorted(signature_weights, key=lambda t: t[2], reverse=True):
             if weight != 0:
-                cosmic_signature = self.signature_names[i]
-                cosmic_explanation = self.cosmic_signature_explanations.Association[i]
                 if explanations:
                     label = '{}, {}%\n({})'.format(cosmic_signature, round(weight*100, 2), cosmic_explanation)
                 else:
@@ -92,13 +90,23 @@ class DeconstructSigs:
                 non_zero_weights.append(weight)
 
         # Plot
+        fig = plt.figure(3, (7, 7))
         if explanations:
-            patches, texts = plt.pie(non_zero_weights, startangle=90, radius=0.2)
-            plt.legend(patches, non_zero_labels, loc="lower left")
+            # Add a legend with explanations and percentages
+            ax = fig.add_subplot(211)
+            ax.axis("equal")
+            pie = ax.pie(non_zero_weights, startangle=90)
+            ax.set_title('COSMIC Signature Weights')
+            ax2 = fig.add_subplot(212)
+            ax2.axis("off")
+            ax2.legend(pie[0], non_zero_labels, loc="center")
         else:
-            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%', radius=0.8)
-        plt.title('COSMIC Signatures Detected in Sample')
-        plt.axis('equal')
+            # Simply place the labels and percentages on the pie chart itself
+            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%')
+            plt.title('COSMIC Signature Weights')
+            plt.axis('equal')
+
+        fig.canvas.set_window_title('COSMIC Signature Weights')
 
         # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot
         y_max = self.plot_sample_profile()
@@ -256,6 +264,7 @@ class DeconstructSigs:
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
         fig.canvas.set_window_title(title)
+        fig.suptitle(title, fontsize=14)
 
         # Set up some colors and markers to cycle through...
         colors = itertools.cycle(['#22bbff', 'k', 'r', '.6', '#88cc44', '#ffaaaa'])
