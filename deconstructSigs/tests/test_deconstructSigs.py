@@ -251,6 +251,7 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[17], .1, places=1)
         self.assertAlmostEqual(reconstructed_weights[23], .1, places=1)
 
+
 """Helpers to generate fake tumor profiles from known linear combinations of cosmic signatures for testing below"""
 
 
