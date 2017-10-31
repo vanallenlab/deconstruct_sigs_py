@@ -7,7 +7,7 @@ from collections import defaultdict
 from deconstructSigs.deconstructSigs import DeconstructSigs
 
 
-class TestDeconstructsig(unittest.TestCase):
+class TestDeconstructSigs(unittest.TestCase):
     def test_one_signature(self):
         weights = np.zeros((30,))
         weights[0] = 1
