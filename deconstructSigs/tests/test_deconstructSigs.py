@@ -39,6 +39,23 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[0], .5, places=2)
         self.assertAlmostEqual(reconstructed_weights[5], .5, places=2)
 
+    def test_two_signatures_with_associated(self):
+        weights = np.zeros((30,))
+        weights[0] = .5
+        weights[5] = .5
+        tumor_profile, context_counts = generate_tumor_profile(weights)
+        ds = DeconstructSigs(context_counts=context_counts)
+
+        # Limit to two deconstructed signatures
+        reconstructed_weights = ds.which_signatures(2, associated=[5])
+        self.assertAlmostEqual(reconstructed_weights[0], 0, places=2)
+        self.assertAlmostEqual(reconstructed_weights[5], 1, places=2)
+
+        # Don't impose a signature limit to test that algorithm correctly deduces only two are necessary
+        reconstructed_weights = ds.which_signatures(associated=[5])
+        self.assertAlmostEqual(reconstructed_weights[0], 0, places=2)
+        self.assertAlmostEqual(reconstructed_weights[5], 1, places=2)
+
     def test_three_signatures(self):
         weights = np.zeros((30,))
         weights[3] = .6
@@ -58,6 +75,22 @@ class TestDeconstructsig(unittest.TestCase):
         self.assertAlmostEqual(reconstructed_weights[3], .6, places=2)
         self.assertAlmostEqual(reconstructed_weights[11], .25, places=2)
         self.assertAlmostEqual(reconstructed_weights[27], .15, places=2)
+
+    def test_three_signatures_with_associated(self):
+        weights = np.zeros((30,))
+        weights[3] = .6
+        weights[11] = .25
+        weights[27] = .15
+        tumor_profile, context_counts = generate_tumor_profile(weights)
+        ds = DeconstructSigs(context_counts=context_counts)
+
+        # Limit to two deconstructed signatures
+        reconstructed_weights = ds.which_signatures(3, associated=[11, 27])
+        self.assertAlmostEqual(reconstructed_weights[3], 0, places=2)
+
+        # Don't impose a signature limit to test that algorithm correctly deduces only three are necessary
+        reconstructed_weights = ds.which_signatures(associated=[11, 27])
+        self.assertAlmostEqual(reconstructed_weights[3], 0, places=2)
 
     def test_four_signatures(self):
         weights = np.zeros((30,))

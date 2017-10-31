@@ -116,10 +116,11 @@ class DeconstructSigs:
 
     def which_signatures(self, signatures_limit=None, associated=None, verbose=False):
         """Wrapper on __which_signatures function. Calls __which_signatures, then outputs a csv file with
-        user-provided name containing the calculated normalized weights for each of the signatures."""
+        user-provided name containing the calculated normalized weights for each of the signatures. If a vector
+        of associated indices is provided, only consider the weights at the indicated indices"""
         # Turn on verbosity if user indicates verbose=True
         self.verbose = verbose
-        w = self.__which_signatures(signatures_limit=signatures_limit)
+        w = self.__which_signatures(signatures_limit=signatures_limit, associated=associated)
 
         # Generate signature weight outputs
         if self.outfile_path:
@@ -176,11 +177,12 @@ class DeconstructSigs:
                     break
         return signatures_to_ignore
 
-    def __which_signatures(self, signatures_limit=None):
-        """Get the weights transformation vector"""
+    def __which_signatures(self, signatures_limit=None, associated=None):
+        """Get the weights transformation vector. If a vector
+        of associated indices is provided, only consider the weights at the indicated indices."""
         # If no signature limit is provided, simply set it to the number of signatures
         if signatures_limit is None:
-            signatures_limit = len(self.S)
+            signatures_limit = len(self.S[0])
 
         # Remove signatures from possibilities if they have a "strong" peak for a context that
         # is not seen in the tumor sample
@@ -193,13 +195,16 @@ class DeconstructSigs:
                                   s.get('context_fraction')))
 
         ignorable_indices = [ig['index'] for ig in ignorable_signatures]
+        if associated:
+            all_not_associated = [index for index in range(len(self.S[0])) if index not in associated]
+            ignorable_indices.extend(all_not_associated)
         iteration = 0
         _, _, flat_counts = self.__get_alphabetical_flat_bins_and_counts()
 
         # Normalize the tumor data
         T = np.array(flat_counts) / sum(flat_counts)
 
-        w = self.__seed_weights(T, self.S)
+        w = self.__seed_weights(T, self.S, ignorable_indices=ignorable_indices)
         self.__status("Initial seed weights assigned:")
         self.__print_normalized_weights(w)
 
@@ -504,7 +509,7 @@ class DeconstructSigs:
 
         return w
 
-    def __seed_weights(self, tumor, signatures):
+    def __seed_weights(self, tumor, signatures, ignorable_indices=None):
         """
         Find which of the cosmic signatures best approximates the tumor signature, and seed the weights such that that
         signature is assigned weight 1 and all other signatures are assigned weight zero. These are the seed weights
@@ -514,14 +519,18 @@ class DeconstructSigs:
         column is a signature
         :return: normalized array of shape (num_signatures, 1) representing weight of each signature
         """
+        if ignorable_indices is None:
+            ignorable_indices = []
+
         num_sigs = len(signatures[0])
         ss_errors = np.empty(num_sigs, )
         ss_errors.fill(math.inf)
         for i in range(num_sigs):
-            tmp_weights = np.zeros((num_sigs,))
-            tmp_weights[i] = 1
-            error = self.__get_error(tumor, signatures, tmp_weights)
-            ss_errors[i] = error
+            if i not in ignorable_indices:
+                tmp_weights = np.zeros((num_sigs,))
+                tmp_weights[i] = 1
+                error = self.__get_error(tumor, signatures, tmp_weights)
+                ss_errors[i] = error
         # Seed index that minimizes sum of squared error metric
         seed_index = np.argmin(ss_errors, axis=0)
         final_weights = np.zeros(num_sigs)
