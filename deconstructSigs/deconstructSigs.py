@@ -427,7 +427,8 @@ class DeconstructSigs:
         trinuc_context = bytes.decode(output.split()[1])
         return trinuc_context
 
-    def __standardize_subs(self, ref, alt):
+    @staticmethod
+    def __standardize_subs(ref, alt):
         """
         A function that converts substitutions into their pyrimidine-based notation. Only C and T ref alleles.
         :param ref: The reference allele
@@ -440,7 +441,8 @@ class DeconstructSigs:
         else:
             return '{}>{}'.format(ref, alt)
 
-    def __standardize_trinuc(self, trinuc):
+    @staticmethod
+    def __standardize_trinuc(trinuc):
         """
         A function that ensures trinucleotide contexts are centered around a pyrimidine, using complementary
         sequence to achieve this if necessary.

@@ -8,6 +8,47 @@ from deconstructSigs.deconstructSigs import DeconstructSigs
 
 
 class TestDeconstructSigs(unittest.TestCase):
+    def test_nucleotide_standardization(self):
+        weights = np.zeros((30,))
+        weights[0] = 1
+        tumor_profile, context_counts = generate_tumor_profile(weights)
+        ds = DeconstructSigs(context_counts=context_counts)
+        standardized = ds._DeconstructSigs__standardize_subs('G', 'C')
+        self.assertEqual(standardized, 'C>G')
+
+        standardized = ds._DeconstructSigs__standardize_subs('G', 'A')
+        self.assertEqual(standardized, 'C>T')
+
+        standardized = ds._DeconstructSigs__standardize_subs('G', 'T')
+        self.assertEqual(standardized, 'C>A')
+
+        standardized = ds._DeconstructSigs__standardize_subs('A', 'C')
+        self.assertEqual(standardized, 'T>G')
+
+        standardized = ds._DeconstructSigs__standardize_subs('A', 'G')
+        self.assertEqual(standardized, 'T>C')
+
+        standardized = ds._DeconstructSigs__standardize_subs('A', 'T')
+        self.assertEqual(standardized, 'T>A')
+
+        standardized = ds._DeconstructSigs__standardize_subs('C', 'A')
+        self.assertEqual(standardized, 'C>A')
+
+        standardized = ds._DeconstructSigs__standardize_subs('C', 'G')
+        self.assertEqual(standardized, 'C>G')
+
+        standardized = ds._DeconstructSigs__standardize_subs('C', 'T')
+        self.assertEqual(standardized, 'C>T')
+
+        standardized = ds._DeconstructSigs__standardize_subs('T', 'A')
+        self.assertEqual(standardized, 'T>A')
+
+        standardized = ds._DeconstructSigs__standardize_subs('T', 'C')
+        self.assertEqual(standardized, 'T>C')
+
+        standardized = ds._DeconstructSigs__standardize_subs('T', 'G')
+        self.assertEqual(standardized, 'T>G')
+
     def test_one_signature(self):
         weights = np.zeros((30,))
         weights[0] = 1
