@@ -11,6 +11,7 @@ from matplotlib import ticker
 import math
 from scipy.optimize import minimize_scalar
 from matplotlib.font_manager import FontProperties
+import subprocess
 courier_font = FontProperties(family='courier new', weight='bold')
 
 
@@ -32,14 +33,18 @@ class DeconstructSigs:
         'G': 'C'
     }
 
+    # pyrimidine bases
+    pyrimidines = ['C', 'T']
+
     def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06,
-                 outfile_path=None, analysis_handle=None):
+                 outfile_path=None, analysis_handle=None, hg19_fasta_path=None):
         """
         Initialize a DeconstructSigs object.
         :param mafs_folder: The path to a folder filled with multiple *.maf files to be used in the analysis
         :param maf_file_path: The path to a single *.maf file to be used in the analysis
         :param context_counts: A dictionary of context counts, with keys in the format 'A[C>A]A' and values integers
         :param cutoff: Cutoff below which calculated signatures will be discarded
+        :param hg19_fasta_path: Path to a reference hg19 fasta file which can be used to query for reference contexts
         """
         self.num_samples = 0
         self.mafs_folder = mafs_folder
@@ -48,6 +53,7 @@ class DeconstructSigs:
         self.signature_cutoff = cutoff
         self.outfile_path = outfile_path
         self.analysis_handle = analysis_handle
+        self.hg19_fasta_path = hg19_fasta_path
 
         package_path = os.path.dirname(os.path.realpath(__file__))
         self.cosmic_signatures_filepath = os.path.join(package_path, 'data/signatures_probabilities.txt')
@@ -265,7 +271,7 @@ class DeconstructSigs:
         self.__plot_counts(flat_bins, reconstructed_tumor_counts, y_max=y_max, title='Reconstructed Tumor Profile')
 
     def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1):
-        """Plot subsitution counts per mutation context"""
+        """Plot subsitution fraction per mutation context"""
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
         fig.canvas.set_window_title(title)
@@ -385,16 +391,41 @@ class DeconstructSigs:
         """Load a MAF file's trinucleotide counts for each type of substitution"""
         df = pd.read_csv(file_path, sep='\t', engine='python')
         for (idx, row) in df.iterrows():
-            ref_context = row.ref_context  # context is the ref flanked by 10 bp on both the 5' and 3' sides
-            trinuc_context = self.__standardize_trinuc(ref_context[9:12])
-            # Only consider SNPs (ignoring DNPs, and TNPs, which would have 22 and 23 context length respectively)
-            if len(ref_context) == 21:
+            trinuc_context = self.__get_snp_trinuc_context(row)
+            if trinuc_context:
                 substitution = self.__standardize_subs(row.Reference_Allele, row.Tumor_Seq_Allele2)
                 assert (trinuc_context[1] == substitution[0])
-                assert (substitution[0] in ['C', 'T'])
-                assert (trinuc_context[1] in ['C', 'T'])
+                assert (substitution[0] in DeconstructSigs.pyrimidines)
+                assert (trinuc_context[1] in DeconstructSigs.pyrimidines)
                 self.subs_dict[substitution][trinuc_context] += 1
         self.num_samples += 1
+
+    def __get_snp_trinuc_context(self, df_row):
+        """Fetch trinucleotide context for SNP. If an hg19 fasta filepath is provided, then retrieve the contexts
+        from the fasta, but otherwise simply expect that there is a row called ref_context in the MAF."""
+        if self.hg19_fasta_path:
+            if df_row.Start_position != df_row.End_position:
+                # We are only considering SNPs so start position and end position should be the same
+                return None
+            trinuc_context = self.__standardize_trinuc(self.__get_trinuc_context_from_fasta(df_row))
+        else:
+            ref_context = df_row.ref_context  # context is the ref flanked by 10 bp on both the 5' and 3' sides
+            if len(ref_context) != 21:
+                # Only consider SNPs (ignoring DNPs, and TNPs, which would have 22 and 23 context length respectively)
+                return None
+            trinuc_context = self.__standardize_trinuc(ref_context[9:12])
+        return trinuc_context
+
+    def __get_trinuc_context_from_fasta(self, df_row):
+        """Fetch the context for a mutation given a row from a MAF file."""
+        chromosome = df_row.Chromosome
+        position = int(df_row.Start_position)
+        bashcommand = 'samtools faidx {} {}:{}-{}'.format(self.hg19_fasta_path, chromosome, position-1, position+1)
+        process = subprocess.Popen(bashcommand.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+
+        trinuc_context = bytes.decode(output.split()[1])
+        return trinuc_context
 
     def __standardize_subs(self, ref, alt):
         """
