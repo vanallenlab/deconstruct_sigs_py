@@ -2,6 +2,15 @@
 Given a MAF or folder of MAF files, find the optimal linear combination of COSMIC mutational signatures that best
 describe the sample's SNV trinucleotide context distribution.
 
+A Python implementation of the DeconstructSigs algorithm described in
+https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0893-4. Modeled after the R implementation
+coded by Rachel Rosenthal which can be found at https://github.com/raerose01/deconstructSigs.
+
+From the GenomeBiology description:
+    The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
+    reconstructs the mutational profile of a single tumor sample. It uses a multiple linear regression model with
+    the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense.
+
 Installation
 ------------
 Click the green Clone or Download button above, copy the presented web URL, and then paste it into your terminal, preceded by the command 'git clone'.
