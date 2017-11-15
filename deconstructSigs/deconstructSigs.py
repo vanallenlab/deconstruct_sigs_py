@@ -49,6 +49,10 @@ class DeconstructSigs:
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
+
+        if self.maf_filepath and self.mafs_folder:
+            raise Exception("Please only provide one of maf_filepath or mafs_folder arguments")
+
         self.verbose = False
         self.signature_cutoff = cutoff
         self.outfile_path = outfile_path
