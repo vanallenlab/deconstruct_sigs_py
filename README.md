@@ -20,10 +20,6 @@ Parameters
 ----------
 The following parameters can be provided to an DeconstructSigs object:
 
-mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06,
-                 outfile_path=None, analysis_handle=None, hg19_fasta_path=None
-
-
 * `mafs_folder`: Optional path to a folder containing multiple MAF file. If provided, analysis will be conducted on all MAF files within the given folder.
 
 * `maf_file_path`: Optional path to a single MAF file. If provided, analysis will be conducted on this file.
