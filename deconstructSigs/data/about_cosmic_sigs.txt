@@ -1,0 +1,31 @@
+Signature	Association
+Signature 1	Aging
+Signature 2	AID/APOBEC
+Signature 3	Germline and Somatic BRCA1/2 mutations. In Pancreatic Cancer, responders to platinum chemotherapy exhibit Signature 3
+Signature 4	Smoking and tobacco mutagens
+Signature 5	Somatic ERCC2 Signatures
+Signature 6	Defective DNA mismatch repair and microsatellite instability
+Signature 7	UV exposure
+Signature 8	Unknown
+Signature 9	Characterized by a pattern of mutations that has been attributed to polymerase η
+Signature 10	POLE
+Signature 11	Temozolomide exposure
+Signature 12	Unknown
+Signature 13	AID/APOBEC
+Signature 14	High mutational burden
+Signature 15	Defective DNA mismatch repair
+Signature 16	Unknown
+Signature 17	Unknown
+Signature 18	Unknown
+Signature 19	Unknown
+Signature 20	Defective DNA mismatch repair
+Signature 21	Microsallite instability
+Signature 22	Aristolochic acid exposure
+Signature 23	Unknown
+Signature 24	Aflatoxin exposure
+Signature 25	Unknown
+Signature 26	Defective DNA mismatch repair
+Signature 27	Unknown
+Signature 28	Unknown
+Signature 29	Tobacco chewing
+Signature 30	Unknown
