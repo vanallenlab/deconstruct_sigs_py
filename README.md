@@ -49,8 +49,12 @@ if __name__ == '__main__':
 
 Output
 ------
+Output using plot_signatures(weights, explanations=True):
+* Tumor profile
 ![Tumor Profile](deconstructSigs/example_plots/tumor_profile.png)
+* Reconstructed tumor profile
 ![Reconstructed Tumor Profile](deconstructSigs/example_plots/reconstructed_tumor_profile.png)
+* COSMIC signatures breakdown
 ![Cosmic Signature Pie Chart](deconstructSigs/example_plots/cosmic_signature_pie.png)
 
 Data Sources
