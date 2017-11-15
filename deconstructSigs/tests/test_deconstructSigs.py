@@ -8,11 +8,13 @@ from deconstructSigs.deconstructSigs import DeconstructSigs
 
 
 class TestDeconstructSigs(unittest.TestCase):
-    def test_nucleotide_standardization(self):
+    def test_substitution_standardization(self):
         weights = np.zeros((30,))
         weights[0] = 1
         tumor_profile, context_counts = generate_tumor_profile(weights)
         ds = DeconstructSigs(context_counts=context_counts)
+
+        # Standard form means that the ref is a pyrimidine
         standardized = ds._DeconstructSigs__standardize_subs('G', 'C')
         self.assertEqual(standardized, 'C>G')
 
@@ -48,6 +50,50 @@ class TestDeconstructSigs(unittest.TestCase):
 
         standardized = ds._DeconstructSigs__standardize_subs('T', 'G')
         self.assertEqual(standardized, 'T>G')
+
+    def test_trinucleotide_standardization(self):
+        weights = np.zeros((30,))
+        weights[0] = 1
+        tumor_profile, context_counts = generate_tumor_profile(weights)
+        ds = DeconstructSigs(context_counts=context_counts)
+
+        pair = {
+            'A': 'T',
+            'C': 'G',
+            'T': 'A',
+            'G': 'C'
+        }
+
+        # Standard form means that a pyrimidine is at the center position of the trinucleotide string
+        already_standard_form = ['ACA', 'ACC', 'ACG', 'ACT',
+                                 'CCA', 'CCC', 'CCG', 'CCT',
+                                 'GCA', 'GCC', 'GCG', 'GCT',
+                                 'TCA', 'TCC', 'TCG', 'TCT',
+                                 'ATA', 'ATC', 'ATG', 'ATT',
+                                 'CTA', 'CTC', 'CTG', 'CTT',
+                                 'GTA', 'GTC', 'GTG', 'GTT',
+                                 'TTA', 'TTC', 'TTG', 'TTT',
+                                 ]
+
+        for trinuc in already_standard_form:
+            standardized_trinuc = ds._DeconstructSigs__standardize_trinuc(trinuc)
+            self.assertEqual(trinuc, standardized_trinuc)
+
+        # Non-standard form means that a purine is a the center position of the trinucleotide string
+        non_standard_form = ['{}{}{}'.format(pair[trinuc[0]], pair[trinuc[1]], pair[trinuc[2]])
+                             for trinuc in already_standard_form]
+
+        for i, trinuc in enumerate(non_standard_form):
+            standardized_trinuc = ds._DeconstructSigs__standardize_trinuc(trinuc)
+            self.assertEqual(already_standard_form[i], standardized_trinuc)
+
+        # Test that lower case trinucleotide strings get uppercased as well
+        for trinuc in already_standard_form:
+            standardized_trinuc = ds._DeconstructSigs__standardize_trinuc(trinuc.lower())
+            self.assertEqual(trinuc, standardized_trinuc)
+        for i, trinuc in enumerate(non_standard_form):
+            standardized_trinuc = ds._DeconstructSigs__standardize_trinuc(trinuc.lower())
+            self.assertEqual(already_standard_form[i], standardized_trinuc)
 
     def test_one_signature(self):
         weights = np.zeros((30,))
