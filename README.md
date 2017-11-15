@@ -38,6 +38,15 @@ mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06,
 
 * `hg19_fasta_path`: Optional. If provided, analysis will determine trinucleotide context by using samtools to search within provided fasta file for each SNP. Requires local installation of samtools, as samtools is run through subprocess. If not provided, DeconstructSigs assumes that the MAF file contains a ref_context column.
 
+ß
+The which_signatures method takes a few parameters as well:
+
+* `signatures_limit`: Optional, default None. If provided, number of signatures allowed to contribute to solution is capped at signatures_limit. Otherwise up to 30 COSMIC signatures could potentially be used.
+
+* `associated`: Optional, default None, list of integer indices of COSMIC signatures in range 0-29. Useful when it is known that only a pre-determined subset of COSMIC signatures should be tried.
+
+* `verbose`: Optional, default False. If True then logs describing weight updates on each iteration will be output to stdout.
+
 Usage
 -----
 ```
