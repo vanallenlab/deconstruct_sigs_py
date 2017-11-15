@@ -49,9 +49,9 @@ if __name__ == '__main__':
 
 Output
 ------
-![Tumor Profile](example_plots/tumor_profile.png)
-![Reconstructed Tumor Profile](example_plots/reconstructed_tumor_profile.png)
-![Cosmic Signature Pie Chart](example_plots/cosmic_signature_pie.png)
+![Tumor Profile](deconstructSigs/example_plots/tumor_profile.png)
+![Reconstructed Tumor Profile](deconstructSigs/example_plots/reconstructed_tumor_profile.png)
+![Cosmic Signature Pie Chart](deconstructSigs/example_plots/cosmic_signature_pie.png)
 
 Data Sources
 ------------
