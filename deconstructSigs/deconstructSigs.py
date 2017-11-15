@@ -101,6 +101,13 @@ class DeconstructSigs:
 
         # Plot
         fig = plt.figure(3, (7, 7))
+
+        # Fill in the missing piece of the pie (due to removed below-threshold signatures)
+        if 1 - sum(non_zero_weights) > 1e-3:
+            difference = 1 - sum(non_zero_weights)
+            non_zero_labels.append('Other Signatures Below Significance Threshold, {}%'.format(round(difference*100, 2)))
+            non_zero_weights.append(difference)
+
         if explanations:
             # Add a legend with explanations and percentages
             ax = fig.add_subplot(211)
@@ -448,17 +455,17 @@ class DeconstructSigs:
     @staticmethod
     def __standardize_trinuc(trinuc):
         """
-        A function that ensures trinucleotide contexts are centered around a pyrimidine, using complementary
+        A function that ensures trinucleotide contexts are centered around a pyrimidine, using reverse complementary
         sequence to achieve this if necessary.
         :param trinuc: A string representing a trinucleotide context, e.g. 'ACT' or 'GAT'
         :return: An uppercase representation of the given trinucleotide if the center base pair is a pyrimidine,
-        otherwise an uppercase representation of the complementary sequence to the given trinucleotide.
+        otherwise an uppercase representation of the reverse complementary sequence to the given trinucleotide.
         """
         trinuc = trinuc.upper()
         if trinuc[1] in ['G', 'A']:
-            return '{}{}{}'.format(DeconstructSigs.pair[trinuc[0]],
+            return '{}{}{}'.format(DeconstructSigs.pair[trinuc[2]],
                                    DeconstructSigs.pair[trinuc[1]],
-                                   DeconstructSigs.pair[trinuc[2]])
+                                   DeconstructSigs.pair[trinuc[0]])
         else:
             return trinuc
 

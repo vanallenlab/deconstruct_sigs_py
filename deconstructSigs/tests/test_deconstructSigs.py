@@ -80,7 +80,7 @@ class TestDeconstructSigs(unittest.TestCase):
             self.assertEqual(trinuc, standardized_trinuc)
 
         # Non-standard form means that a purine is a the center position of the trinucleotide string
-        non_standard_form = ['{}{}{}'.format(pair[trinuc[0]], pair[trinuc[1]], pair[trinuc[2]])
+        non_standard_form = ['{}{}{}'.format(pair[trinuc[2]], pair[trinuc[1]], pair[trinuc[0]])
                              for trinuc in already_standard_form]
 
         for i, trinuc in enumerate(non_standard_form):
