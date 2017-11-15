@@ -46,7 +46,7 @@ The which_signatures method takes a few parameters as well:
 Usage
 -----
 ```
-from deconstructSigs.deconstructSigs import DeconstructSigs
+from deconstructSigs import DeconstructSigs
 
 
 def main():
