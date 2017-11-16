@@ -15,6 +15,7 @@ the caveat that any coefficient must be greater than 0, as negative contribution
 Installation
 ------------
 Click the green Clone or Download button above, copy the presented web URL, and then paste it into your terminal, preceded by the command 'git clone'.
+
   `git clone https://github.com/vanallenlab/deconstruct_sigs_py.git`
 
 Parameters
