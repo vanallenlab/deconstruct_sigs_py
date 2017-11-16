@@ -8,9 +8,9 @@ coded by Rachel Rosenthal which can be found at https://github.com/raerose01/dec
 
 From the GenomeBiology description:
 
-    *The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
-    reconstructs the mutational profile of a single tumor sample. It uses a multiple linear regression model with
-    the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense.*
+*The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
+reconstructs the mutational profile of a single tumor sample. It uses a multiple linear regression model with
+the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense.*
 
 Installation
 ------------
