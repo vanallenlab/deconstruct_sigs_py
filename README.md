@@ -7,9 +7,10 @@ https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0893-4. Mode
 coded by Rachel Rosenthal which can be found at https://github.com/raerose01/deconstructSigs.
 
 From the GenomeBiology description:
-    The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
+
+    *The deconstructSigs approach determines the linear combination of pre-defined signatures that most accurately
     reconstructs the mutational profile of a single tumor sample. It uses a multiple linear regression model with
-    the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense.
+    the caveat that any coefficient must be greater than 0, as negative contributions make no biological sense.*
 
 Installation
 ------------
@@ -70,7 +71,7 @@ if __name__ == '__main__':
 
 Output
 ------
-Output using plot_signatures(weights, explanations=True):
+Output of figures():
 * Tumor profile
 ![Tumor Profile](deconstructSigs/example_plots/tumor_profile.png)
 * Reconstructed tumor profile
