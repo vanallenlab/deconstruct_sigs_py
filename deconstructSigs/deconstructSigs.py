@@ -93,7 +93,9 @@ class DeconstructSigs:
         # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot based on this
         y_max = self.plot_sample_profile()
         # Plot the reconstructed tumor profile using the weights provided
-        self.__plot_reconstructed_profile(weights, y_max=y_max)
+        reconstructed_profile = self.__plot_reconstructed_profile(weights, y_max=y_max)
+        # Plot the differences between the original and reconstructed profile
+        self.__plot_difference(reconstructed_profile, y_max)
         plt.show()
 
     def plot_pie_chart(self, weights, explanations=False):
@@ -153,7 +155,7 @@ class DeconstructSigs:
 
         # Generate signature weight outputs
         if outfile_path:
-            f = open(os.path.join(outfile_path, '{}.csv'.format(self.analysis_handle or 'analysis')), 'xt')
+            f = open(os.path.join(outfile_path, '{}_signature_weights.csv'.format(self.analysis_handle or 'analysis')), 'xt')
             for signature in self.signature_names:
                 f.write('{},'.format(signature))
             f.write('\n')
@@ -281,6 +283,23 @@ class DeconstructSigs:
         self.__plot_counts(flat_bins, fractions, y_max=y_max, title=title)
         return y_max
 
+    def __plot_difference(self, reconstructed_tumor_weights, y_max):
+        """Plot the difference between the original and reconstructed tumor profile."""
+        _, flat_bins, flat_counts = self.__get_plottable_flat_bins_and_counts()
+        total_counts = sum(flat_counts)
+        fractions = [c / total_counts for c in flat_counts]
+
+        differences = []
+        for i in range(len(fractions)):
+            differences.append(fractions[i] - reconstructed_tumor_weights[i])
+
+        title = 'Difference Between Original and Reconstructed Tumor Profile'
+        if self.analysis_handle:
+            title = '{} for {}'.format(title, self.analysis_handle)
+
+        self.__plot_counts(flat_bins, differences,
+                           y_max=y_max, y_min=-y_max, title=title)
+
     def __plot_reconstructed_profile(self, weights, y_max=1):
         """Given a set of weights for each signature plot the reconstructed tumor profile using the cosmic signatures"""
         reconstructed_tumor_profile = self.__get_reconstructed_tumor_profile(self.S, weights)
@@ -299,8 +318,9 @@ class DeconstructSigs:
         if self.analysis_handle:
             title = '{} for {}'.format(title, self.analysis_handle)
         self.__plot_counts(flat_bins, reconstructed_tumor_counts, y_max=y_max, title=title)
+        return reconstructed_tumor_counts
 
-    def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1):
+    def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1.0, y_min=0.0):
         """Plot subsitution fraction per mutation context"""
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
@@ -322,7 +342,7 @@ class DeconstructSigs:
             ax.xaxis.set_major_formatter(ticker.FixedFormatter(new_ticks))
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=90, font_properties=courier_font, color='k')
             # Standardize y-axis ranges across subplots (in percentage units)
-            ax.set_ylim([0, y_max])
+            ax.set_ylim([y_min, y_max])
             vals = ax.get_yticks()
             ax.set_yticklabels(['{:3.0f}%'.format(val * 100) for val in vals])
             plt.setp(ax.yaxis.get_majorticklabels(), color='k', fontweight='bold')
