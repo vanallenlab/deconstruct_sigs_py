@@ -78,8 +78,7 @@ Output of **figures()**:
 * Reconstructed tumor profile
 ![Reconstructed Tumor Profile](deconstructSigs/example_plots/reconstructed_tumor_profile.png)
 * COSMIC signatures breakdown
-![Cosmic Signature Pie Chart](deconstructSigs/example_plots/cosmic_signature_pie.png =250x250)
-<img src="deconstructSigs/example_plots/cosmic_signature_pie.png" alt="Cosmic Signature Pie Chart" width="100px">
+<img src="deconstructSigs/example_plots/cosmic_signature_pie.png" alt="Cosmic Signature Pie Chart" height="400px">
 * COSMIC signatures breakdown with explanations
 ![Cosmic Signature Pie Chart](deconstructSigs/example_plots/cosmic_signature_pie_with_explanations.png)
 
