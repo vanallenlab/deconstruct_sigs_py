@@ -59,7 +59,6 @@ class DeconstructSigs:
 
         self.verbose = False
         self.signature_cutoff = cutoff
-        self.outfile_path = outfile_path
         self.analysis_handle = analysis_handle
         self.hg19_fasta_path = hg19_fasta_path
 
