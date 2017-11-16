@@ -85,7 +85,15 @@ class DeconstructSigs:
                                 'Signature 21', 'Signature 22', 'Signature 23', 'Signature 24', 'Signature 25',
                                 'Signature 26', 'Signature 27', 'Signature 28', 'Signature 29', 'Signature 30']
 
-    def plot_signatures(self, weights, explanations=False):
+    def figures(self, weights, explanations=False):
+        self.plot_pie_chart(weights, explanations=explanations)
+        # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot based on this
+        y_max = self.plot_sample_profile()
+        # Plot the reconstructed tumor profile using the weights provided
+        self.__plot_reconstructed_profile(weights, y_max=y_max)
+        plt.show()
+
+    def plot_pie_chart(self, weights, explanations=False):
         signature_weights = zip(self.signature_names, self.cosmic_signature_explanations.Association, weights)
         # Data to plot
         non_zero_weights = []
@@ -105,31 +113,32 @@ class DeconstructSigs:
         # Fill in the missing piece of the pie (due to removed below-threshold signatures)
         if 1 - sum(non_zero_weights) > 1e-3:
             difference = 1 - sum(non_zero_weights)
-            non_zero_labels.append('Other Signatures Below Significance Threshold, {}%'.format(round(difference*100, 2)))
+            percentage = round(difference*100, 2)
+            if explanations:
+                non_zero_labels.append('Other Signatures Below Significance Threshold, {}%'.format(percentage))
+            else:
+                non_zero_labels.append('Other')
             non_zero_weights.append(difference)
 
+        title = 'COSMIC Signature Weights'
+        if self.analysis_handle:
+            title = '{} for {}'.format(title, self.analysis_handle)
         if explanations:
             # Add a legend with explanations and percentages
             ax = fig.add_subplot(211)
             ax.axis("equal")
             pie = ax.pie(non_zero_weights, startangle=90)
-            ax.set_title('COSMIC Signature Weights')
+            ax.set_title(title)
             ax2 = fig.add_subplot(212)
             ax2.axis("off")
             ax2.legend(pie[0], non_zero_labels, loc="center")
         else:
             # Simply place the labels and percentages on the pie chart itself
-            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%')
-            plt.title('COSMIC Signature Weights')
+            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%', labeldistance=1.05)
+            plt.title(title)
             plt.axis('equal')
 
-        fig.canvas.set_window_title('COSMIC Signature Weights')
-
-        # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot
-        y_max = self.plot_sample_profile()
-        # Plot the reconstructed tumor profile using the weights provided
-        self.__plot_reconstructed_profile(weights, y_max=y_max)
-        plt.show()
+        fig.canvas.set_window_title(title)
 
     def which_signatures(self, signatures_limit=None, associated=None, verbose=False):
         """Wrapper on __which_signatures function. Calls __which_signatures, then outputs a csv file with
@@ -262,7 +271,11 @@ class DeconstructSigs:
         total_counts = sum(flat_counts)
         fractions = [c/total_counts for c in flat_counts]
         y_max = max(fractions) * 1.05
-        self.__plot_counts(flat_bins, fractions, y_max=y_max, title='Tumor Profile')
+
+        title = 'Tumor Profile'
+        if self.analysis_handle:
+            title = '{} for {}'.format(title, self.analysis_handle)
+        self.__plot_counts(flat_bins, fractions, y_max=y_max, title=title)
         return y_max
 
     def __plot_reconstructed_profile(self, weights, y_max=1):
@@ -279,7 +292,10 @@ class DeconstructSigs:
         flat_subs, flat_bins, _ = self.__get_plottable_flat_bins_and_counts()
         for subs_type in flat_subs:
             reconstructed_tumor_counts.append(reconstructed_counts_dict[subs_type])
-        self.__plot_counts(flat_bins, reconstructed_tumor_counts, y_max=y_max, title='Reconstructed Tumor Profile')
+        title = 'Reconstructed Tumor Profile'
+        if self.analysis_handle:
+            title = '{} for {}'.format(title, self.analysis_handle)
+        self.__plot_counts(flat_bins, reconstructed_tumor_counts, y_max=y_max, title=title)
 
     def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1):
         """Plot subsitution fraction per mutation context"""
@@ -428,7 +444,7 @@ class DeconstructSigs:
         return trinuc_context
 
     def __get_trinuc_context_from_fasta(self, df_row):
-        """Fetch the context for a mutation given a row from a MAF file."""
+        """Fetch the trinucleotide context for a mutation given a row from a MAF file."""
         chromosome = df_row.Chromosome
         position = int(df_row.Start_position)
         bashcommand = 'samtools faidx {} {}:{}-{}'.format(self.hg19_fasta_path, chromosome, position-1, position+1)
