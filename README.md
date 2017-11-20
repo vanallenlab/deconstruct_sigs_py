@@ -14,7 +14,13 @@ the caveat that any coefficient must be greater than 0, as negative contribution
 
 Installation
 ------------
-Click the green Clone or Download button above, copy the presented web URL, and then paste it into your terminal, preceded by the command 'git clone'.
+To install the deconstructSigs package, use the Python package installer pip:
+  
+  `pip install deconstructSigs`
+  
+Then simply import the class DeconstructSigs from the deconstructSigs package, as illustrated below in the "Usage" section.
+
+To edit the code on your machine, click the green Clone or Download button above, copy the presented web URL, and then paste it into your terminal, preceded by the command 'git clone'.
 
   `git clone https://github.com/vanallenlab/deconstruct_sigs_py.git`
 
