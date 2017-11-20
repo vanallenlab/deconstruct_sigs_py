@@ -26,7 +26,7 @@ To edit the code on your machine, click the green Clone or Download button above
 
 Parameters
 ----------
-The following parameters can be provided to an DeconstructSigs object upon initialization:
+The following parameters can be provided to a DeconstructSigs object upon initialization:
 
 * `maf_file_path`: Optional path to a single MAF file. If provided, analysis will be conducted on this file. Either this parameter or mafs_folder must be supplied.
 
