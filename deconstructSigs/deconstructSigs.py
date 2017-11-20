@@ -433,13 +433,14 @@ class DeconstructSigs:
         if self.mafs_folder:
             for filename in [n for n in os.listdir(self.mafs_folder) if n.endswith('maf')]:
                 file_path = '{}/{}'.format(self.mafs_folder, filename)
-                self.__load_maf(file_path)
+                self.__load_maf(file_path, weight_for_multiple=True)
         elif self.maf_filepath:
             self.__load_maf(self.maf_filepath)
 
-    def __load_maf(self, file_path):
+    def __load_maf(self, file_path, weight_for_multiple=False):
         """Load a MAF file's trinucleotide counts for each type of substitution"""
         df = pd.read_csv(file_path, sep='\t', engine='python')
+        num_muts = len(df)
         for (idx, row) in df.iterrows():
             trinuc_context = self.__get_snp_trinuc_context(row)
             if trinuc_context:
@@ -447,7 +448,10 @@ class DeconstructSigs:
                 assert (trinuc_context[1] == substitution[0])
                 assert (substitution[0] in DeconstructSigs.pyrimidines)
                 assert (trinuc_context[1] in DeconstructSigs.pyrimidines)
-                self.subs_dict[substitution][trinuc_context] += 1
+                addend = 1
+                if weight_for_multiple:
+                    addend = 1/num_muts
+                self.subs_dict[substitution][trinuc_context] += addend
         self.num_samples += 1
 
     def __get_snp_trinuc_context(self, df_row):
