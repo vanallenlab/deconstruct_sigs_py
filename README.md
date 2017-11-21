@@ -30,7 +30,7 @@ The following parameters can be provided to a DeconstructSigs object upon initia
 
 * `maf_file_path`: Optional path to a single MAF file. If provided, analysis will be conducted on this file. Either this parameter or mafs_folder must be supplied.
 
-* `mafs_folder`: Optional path to a folder containing multiple MAF file. If provided, analysis will be conducted on all MAF files within the given folder. Either this parameter or maf_file_path must be supplied.
+* `mafs_folder`: Optional path to a folder containing multiple MAF file. If provided, analysis will be conducted on all MAF files within the given folder, weighting the mutation context counts according to how many total mutations are present in the originating sample MAF. Either this parameter or maf_file_path must be supplied.
 
 * `context_counts`: Optional. This argument can be used to provide a dictionary of context counts rather than a MAF file. Keys are of the form 'A[C>A]A', 'A[C>A]C', etc., and values are integer counts.
 
