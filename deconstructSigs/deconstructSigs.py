@@ -12,6 +12,7 @@ import math
 from scipy.optimize import minimize_scalar
 from matplotlib.font_manager import FontProperties
 import subprocess
+from matplotlib import colors as mcolors
 courier_font = FontProperties(family='courier new', weight='bold')
 
 
@@ -99,18 +100,22 @@ class DeconstructSigs:
         plt.show()
 
     def plot_pie_chart(self, weights, explanations=False):
+        all_colors = {self.signature_names[i]: list(mcolors.CSS4_COLORS.values())[30:][i] for i in range(len(self.signature_names))}
         signature_weights = zip(self.signature_names, self.cosmic_signature_explanations.Association, weights)
         # Data to plot
         non_zero_weights = []
         non_zero_labels = []
+        colors = []
         for cosmic_signature, cosmic_explanation, weight in sorted(signature_weights, key=lambda t: t[2], reverse=True):
             if weight != 0:
                 if explanations:
                     label = '{}, {}%\n({})'.format(cosmic_signature, round(weight*100, 2), cosmic_explanation)
                 else:
                     label = '{}'.format(cosmic_signature)
+                color = all_colors[cosmic_signature]
                 non_zero_labels.append(label)
                 non_zero_weights.append(weight)
+                colors.append(color)
 
         # Plot
         fig = plt.figure(3, (7, 7))
@@ -124,6 +129,7 @@ class DeconstructSigs:
             else:
                 non_zero_labels.append('Other')
             non_zero_weights.append(difference)
+            colors.append('black')
 
         title = 'COSMIC Signature Weights'
         if self.analysis_handle:
@@ -132,14 +138,14 @@ class DeconstructSigs:
             # Add a legend with explanations and percentages
             ax = fig.add_subplot(211)
             ax.axis("equal")
-            pie = ax.pie(non_zero_weights, startangle=90)
+            pie = ax.pie(non_zero_weights, startangle=90, colors=colors)
             ax.set_title(title)
             ax2 = fig.add_subplot(212)
             ax2.axis("off")
             ax2.legend(pie[0], non_zero_labels, loc="center")
         else:
             # Simply place the labels and percentages on the pie chart itself
-            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%', labeldistance=1.05)
+            plt.pie(non_zero_weights, labels=non_zero_labels, autopct='%1.0f%%', labeldistance=1.05, colors=colors)
             plt.title(title)
             plt.axis('equal')
 
@@ -321,7 +327,7 @@ class DeconstructSigs:
         return reconstructed_tumor_counts
 
     def __plot_counts(self, flat_bins, flat_counts, title='Figure', y_max=1.0, y_min=0.0):
-        """Plot subsitution fraction per mutation context"""
+        """Plot substitution fraction per mutation context"""
         # Set up several subplots
         fig, axes = plt.subplots(nrows=1, ncols=6, figsize=(20, 5.5))
         fig.canvas.set_window_title(title)
