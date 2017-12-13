@@ -3,8 +3,8 @@ setup(name='deconstructSigs',
       description='Implementation of DeconstructSigs algorithm for deducing cancer genome mutational signatures',
       author='Eric Kofman',
       author_email='ericrkofman@gmail.com',
-      version='1.3',
+      version='1.4',
       py_modules=['deconstructSigs'],
       url='https://github.com/vanallenlab/deconstruct_sigs_py',
-      download_url='https://github.com/vanallenlab/deconstruct_sigs_py/archive/v1.3.tar.gz'
+      download_url='https://github.com/vanallenlab/deconstruct_sigs_py/archive/v1.4.tar.gz'
       )
