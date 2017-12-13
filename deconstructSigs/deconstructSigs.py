@@ -2,6 +2,7 @@ import re
 import numpy as np
 import sys
 import os
+import datetime as dt
 import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
@@ -41,7 +42,7 @@ class DeconstructSigs:
     purines = ['G', 'A']
 
     def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06, analysis_handle=None,
-                 hg19_fasta_path=None):
+                 hg19_fasta_path=None, output_folder=None):
         """
         Initialize a DeconstructSigs object.
         :param mafs_folder: The path to a folder filled with multiple *.maf files to be used in the analysis
@@ -54,6 +55,8 @@ class DeconstructSigs:
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
+        self.output_folder = output_folder
+        self.timestamp = dt.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
         if self.maf_filepath and self.mafs_folder:
             raise Exception("Please only provide one of maf_filepath or mafs_folder arguments")
@@ -61,6 +64,12 @@ class DeconstructSigs:
         self.verbose = False
         self.signature_cutoff = cutoff
         self.analysis_handle = analysis_handle
+        if not self.analysis_handle:
+            if self.maf_filepath:
+                self.analysis_handle = os.path.split(self.maf_filepath)[-1].split('.')[0]
+            else:
+                self.analysis_handle = 'analysis'
+
         self.hg19_fasta_path = hg19_fasta_path
 
         package_path = os.path.dirname(os.path.realpath(__file__))
@@ -91,13 +100,31 @@ class DeconstructSigs:
 
     def figures(self, weights, explanations=False):
         self.plot_pie_chart(weights, explanations=explanations)
+
+        if self.output_folder:
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_pie_{}.png'.format(
+                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+
         # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot based on this
         y_max = self.plot_sample_profile()
+        if self.output_folder:
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_sample_profile_{}.png'.format(
+                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+
         # Plot the reconstructed tumor profile using the weights provided
         reconstructed_profile = self.__plot_reconstructed_profile(weights, y_max=y_max)
+        if self.output_folder:
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_reconstructed_profile_{}.png'.format(
+                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+
         # Plot the differences between the original and reconstructed profile
         self.__plot_difference(reconstructed_profile, y_max)
-        plt.show()
+        if self.output_folder:
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_differences_{}.png'.format(
+                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+
+        if not self.output_folder:
+            plt.show()
 
     def plot_pie_chart(self, weights, explanations=False):
         all_colors = {self.signature_names[i]: list(mcolors.CSS4_COLORS.values())[30:][i] for i in range(len(self.signature_names))}
@@ -151,7 +178,7 @@ class DeconstructSigs:
 
         fig.canvas.set_window_title(title)
 
-    def which_signatures(self, signatures_limit=None, associated=None, verbose=False, outfile_path=None):
+    def which_signatures(self, signatures_limit=None, associated=None, verbose=False):
         """Wrapper on __which_signatures function. Calls __which_signatures, then outputs a csv file with
         user-provided name containing the calculated normalized weights for each of the signatures. If a vector
         of associated indices is provided, only consider the weights at the indicated indices"""
@@ -160,8 +187,9 @@ class DeconstructSigs:
         w = self.__which_signatures(signatures_limit=signatures_limit, associated=associated)
 
         # Generate signature weight outputs
-        if outfile_path:
-            f = open(os.path.join(outfile_path, '{}_signature_weights.csv'.format(self.analysis_handle or 'analysis')), 'xt')
+        if self.output_folder:
+            f = open(os.path.join(self.output_folder, '{}_deconstructsigs_signature_weights_{}.csv'.format(
+                self.analysis_handle, self.timestamp)), 'xt')
             for signature in self.signature_names:
                 f.write('{},'.format(signature))
             f.write('\n')

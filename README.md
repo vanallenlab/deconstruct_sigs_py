@@ -40,10 +40,9 @@ The following parameters can be provided to a DeconstructSigs object upon initia
 
 * `hg19_fasta_path`: Optional. If provided, analysis will determine trinucleotide context by using samtools to search within provided fasta file for each SNP. Requires local installation of samtools, as samtools is run through subprocess. If not provided, DeconstructSigs assumes that the MAF file contains a ref_context column.
 
+* `output_folder`: Optional. If provided, calculated signature weights will be output here upon calling which_signatures(), and plot figures will be saved here as well upon calling figures(). If not provided, figures will simply display as they are generated.
 
 The **which_signatures()** method outputs the vector of weights calculated for each signature. It takes a few parameters as well:
-
-* `outfile_path`: Optional. If provided, calculated signature weights will be output here upon calling which_signatures().
 
 * `signatures_limit`: Optional, default None. If provided, number of signatures allowed to contribute to solution is capped at signatures_limit. Otherwise up to 30 COSMIC signatures could potentially be used.
 
@@ -67,7 +66,8 @@ from deconstructSigs import DeconstructSigs
 def main():
     fasta_path = '/path/to/Homo_sapiens_assembly19.fasta'
     ds = DeconstructSigs(maf_file_path='/path/to/snvs.maf',
-                         hg19_fasta_path=fasta_path)
+                         hg19_fasta_path=fasta_path,
+                         output_folder='/path/to/desired/output/folder')
 
     weights = ds.which_signatures(verbose=True)
     ds.plot_signatures(weights, explanations=True)
