@@ -1,10 +1,13 @@
 from distutils.core import setup
+
+from setuptools import find_packages
+my_packages=find_packages()
 setup(name='deconstructSigs',
       description='Implementation of DeconstructSigs algorithm for deducing cancer genome mutational signatures',
       author='Eric Kofman',
       author_email='ericrkofman@gmail.com',
-      version='1.4',
-      py_modules=['deconstructSigs'],
+      version='1.44',
+      py_modules=my_packages,
       url='https://github.com/vanallenlab/deconstruct_sigs_py',
-      download_url='https://github.com/vanallenlab/deconstruct_sigs_py/archive/v1.4.tar.gz'
+      download_url='https://github.com/vanallenlab/deconstruct_sigs_py/archive/v1.44.tar.gz'
       )
