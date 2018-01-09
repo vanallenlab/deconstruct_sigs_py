@@ -42,7 +42,7 @@ class DeconstructSigs:
     purines = ['G', 'A']
 
     def __init__(self, mafs_folder=None, maf_file_path=None, context_counts=None, cutoff=0.06, analysis_handle=None,
-                 hg19_fasta_path=None, output_folder=None):
+                 hg19_fasta_path=None, output_folder=None, skip_rows=None):
         """
         Initialize a DeconstructSigs object.
         :param mafs_folder: The path to a folder filled with multiple *.maf files to be used in the analysis
@@ -55,6 +55,7 @@ class DeconstructSigs:
         self.num_samples = 0
         self.mafs_folder = mafs_folder
         self.maf_filepath = maf_file_path
+        self.skip_rows = skip_rows
         self.output_folder = output_folder
         self.timestamp = dt.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
@@ -473,7 +474,7 @@ class DeconstructSigs:
 
     def __load_maf(self, file_path, weight_for_multiple=False):
         """Load a MAF file's trinucleotide counts for each type of substitution"""
-        df = pd.read_csv(file_path, sep='\t', engine='python')
+        df = pd.read_csv(file_path, sep='\t', engine='python', skiprows=self.skip_rows)
         num_muts = len(df)
         for (idx, row) in df.iterrows():
             trinuc_context = self.__get_snp_trinuc_context(row)
