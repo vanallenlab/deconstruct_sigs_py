@@ -103,26 +103,26 @@ class DeconstructSigs:
         self.plot_pie_chart(weights, explanations=explanations)
 
         if self.output_folder:
-            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_pie_{}.png'.format(
-                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_pie.png'.format(
+                self.analysis_handle)), bbox_inches='tight')
 
         # Plot the sample profile and figure out what the optimal maximum y-value is for a good plot based on this
         y_max = self.plot_sample_profile()
         if self.output_folder:
-            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_sample_profile_{}.png'.format(
-                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_sample_profile.png'.format(
+                self.analysis_handle)), bbox_inches='tight')
 
         # Plot the reconstructed tumor profile using the weights provided
         reconstructed_profile = self.__plot_reconstructed_profile(weights, y_max=y_max)
         if self.output_folder:
-            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_reconstructed_profile_{}.png'.format(
-                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_reconstructed_profile.png'.format(
+                self.analysis_handle)), bbox_inches='tight')
 
         # Plot the differences between the original and reconstructed profile
         self.__plot_difference(reconstructed_profile, y_max)
         if self.output_folder:
-            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_differences_{}.png'.format(
-                self.analysis_handle, self.timestamp)), bbox_inches='tight')
+            plt.savefig(os.path.join(self.output_folder, '{}_deconstructsigs_differences.png'.format(
+                self.analysis_handle)), bbox_inches='tight')
 
         if not self.output_folder:
             plt.show()
@@ -189,8 +189,8 @@ class DeconstructSigs:
 
         # Generate signature weight outputs
         if self.output_folder:
-            f = open(os.path.join(self.output_folder, '{}_deconstructsigs_signature_weights_{}.csv'.format(
-                self.analysis_handle, self.timestamp)), 'xt')
+            f = open(os.path.join(self.output_folder, '{}_deconstructsigs_signature_weights.csv'.format(
+                self.analysis_handle)), 'xt')
             for signature in self.signature_names:
                 f.write('{},'.format(signature))
             f.write('\n')
