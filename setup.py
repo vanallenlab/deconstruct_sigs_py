@@ -12,7 +12,6 @@ setup (
 		'pandas',
 		'numpy',
 		'matplotlib',
-		'scipy',
-		'sklearn'
+		'scipy'
 	]
 )
