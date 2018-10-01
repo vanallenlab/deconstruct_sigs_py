@@ -493,7 +493,7 @@ class DeconstructSigs(object):
         """Fetch trinucleotide context for SNP. If an hg19 fasta filepath is provided, then retrieve the contexts
         from the fasta, but otherwise simply expect that there is a row called ref_context in the MAF."""
         if self.hg19_fasta_path:
-            if df_row.Start_position != df_row.End_position:
+            if df_row.Start_Position != df_row.End_Position:
                 # We are only considering SNPs so start position and end position should be the same
                 return None
             trinuc_context = self.__standardize_trinuc(self.__get_trinuc_context_from_fasta(df_row))
@@ -508,7 +508,7 @@ class DeconstructSigs(object):
     def __get_trinuc_context_from_fasta(self, df_row):
         """Fetch the trinucleotide context for a mutation given a row from a MAF file."""
         chromosome = df_row.Chromosome
-        position = int(df_row.Start_position)
+        position = int(df_row.Start_Position)
         bashcommand = 'samtools faidx {} {}:{}-{}'.format(self.hg19_fasta_path, chromosome, position-1, position+1)
         process = subprocess.Popen(bashcommand.split(), stdout=subprocess.PIPE)
         output, error = process.communicate()
