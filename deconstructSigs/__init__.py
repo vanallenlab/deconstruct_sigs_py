@@ -466,7 +466,7 @@ class DeconstructSigs(object):
     def __load_mafs(self):
         """Load all *.maf files found in the directory provided"""
         if self.mafs_folder:
-            for filename in [n for n in os.listdir(self.mafs_folder) if n.endswith('maf')]:
+            for filename in [n for n in os.listdir(self.mafs_folder) if n.endswith('maf')] or n.endswith('maf.gz'):
                 file_path = '{}/{}'.format(self.mafs_folder, filename)
                 self.__load_maf(file_path, weight_for_multiple=True)
         elif self.maf_filepath:
