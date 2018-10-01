@@ -474,7 +474,7 @@ class DeconstructSigs(object):
 
     def __load_maf(self, file_path, weight_for_multiple=False):
         """Load a MAF file's trinucleotide counts for each type of substitution"""
-        df = pd.read_csv(file_path, sep='\t', engine='python', skiprows=self.skip_rows)
+        df = pd.read_csv(file_path, sep='\t', engine='python', skiprows=self.skip_rows, comment='#')
         num_muts = len(df)
         for (idx, row) in df.iterrows():
             trinuc_context = self.__get_snp_trinuc_context(row)
