@@ -7,5 +7,12 @@ setup (
 	url              = "https://github.com/pwwang/deconstruct_sigs_py",
 	author           = "Eric Kofman; pwwang",
 	author_email     = "ericrkofman@gmail.com",
-	packages         = find_packages()
+	packages         = find_packages(),
+	install_requires = [
+		'pandas',
+		'numpy',
+		'matplotlib',
+		'scipy',
+		'sklearn'
+	]
 )
