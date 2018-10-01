@@ -8,7 +8,7 @@ setup (
 	author           = "Eric Kofman; pwwang",
 	author_email     = "ericrkofman@gmail.com",
 	packages         = find_packages(),
-	data_files       = {'': ['deconstructSigs/data/*.txt']},
+	data_files       = {'': ['deconstructSigs/data/about_cosmic_sigs.txt', 'deconstructSigs/data/signatures_probabilities.txt']},
 	install_requires = [
 		'pandas',
 		'numpy',
