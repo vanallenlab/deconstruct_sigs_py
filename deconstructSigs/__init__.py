@@ -17,7 +17,7 @@ from matplotlib import colors as mcolors
 courier_font = FontProperties(family='courier new', weight='bold')
 
 
-class DeconstructSigs:
+class DeconstructSigs(object):
     """A Python implementation of the DeconstructSigs algorithm described in
     https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0893-4. Modeled after the R implementation
     coded by Rachel Rosenthal which can be found at https://github.com/raerose01/deconstructSigs.
