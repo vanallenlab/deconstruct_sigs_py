@@ -8,7 +8,7 @@ setup (
 	author           = "Eric Kofman; pwwang",
 	author_email     = "ericrkofman@gmail.com",
 	packages         = find_packages(),
-	package_data     = {'deconstructSigs': ['deconstructSigs/data/*.txt']},
+	package_data     = {'', ['deconstructSigs/data/*.txt']},
 	install_requires = [
 		'pandas',
 		'numpy',
