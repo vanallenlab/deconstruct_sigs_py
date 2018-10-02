@@ -1,1 +1,1 @@
-recursive-include  deconstructSigs *.py *.txt
+include  deconstructSigs/data/*.txt
