@@ -290,7 +290,6 @@ class DeconstructSigs(object):
 
         # Normalize the tumor data
         T = np.array(flat_counts) / sum(flat_counts)
-
         w = self._seed_weights(T, self.S, ignorable_indices=ignorable_indices)
         self._status("Initial seed weights assigned:")
         self._print_normalized_weights(w)
@@ -449,7 +448,6 @@ class DeconstructSigs(object):
         for subs, context_counts in self.subs_dict.items():
             for context in context_counts:
                 context_dict['{}[{}]{}'.format(context[0], subs, context[2])] = context_counts[context]
-
         flat_bins = []
         flat_counts = []
         for context in sorted(context_dict):
@@ -507,7 +505,6 @@ class DeconstructSigs(object):
                 self._status('- Reading line: {}/{}'.format(n, num_muts))
             trinuc_context = self._get_snp_trinuc_context(row)
             if not trinuc_context: continue
-
             substitution = self._standardize_subs(row.Reference_Allele, row.Tumor_Seq_Allele2)
             try:
                 assert (trinuc_context[1] == substitution[0])
@@ -530,7 +527,9 @@ class DeconstructSigs(object):
         """Fetch trinucleotide context for SNP. If an hg19 fasta filepath is provided, then retrieve the contexts
         from the fasta, but otherwise simply expect that there is a row called ref_context in the MAF."""
         if self.hg19_fasta:
-            if df_row.Start_Position != df_row.End_Position:
+            if df_row.Start_Position != df_row.End_Position or \
+               df_row.Reference_Allele not in DeconstructSigs.pair.keys() or \
+               df_row.Tumor_Seq_Allele2 not in DeconstructSigs.pair.keys():
                 # We are only considering SNPs so start position and end position should be the same
                 return None
             trinuc_context = self._standardize_trinuc(self._get_trinuc_context_from_fasta(df_row))
