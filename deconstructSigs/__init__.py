@@ -514,7 +514,7 @@ class DeconstructSigs(object):
                 assert (substitution[0] in DeconstructSigs.pyrimidines)
                 assert (trinuc_context[1] in DeconstructSigs.pyrimidines)
             except AssertionError:
-                self._status('Row    :' + row.Chromosome + '|' + row.Start_Position + '|' + row.Reference_Allele + '|' + row.Tumor_Seq_Allele2)
+                self._status('Row    :' + row.Chromosome + '|' + str(row.Start_Position) + '|' + row.Reference_Allele + '|' + row.Tumor_Seq_Allele2)
                 self._status('Raw seq:' + self._get_trinuc_context_from_fasta(row))
                 self._status('Normed :' + trinuc_context + '|' + substitution)
                 raise
