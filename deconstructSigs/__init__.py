@@ -209,7 +209,6 @@ class DeconstructSigs(object):
         of associated indices is provided, only consider the weights at the indicated indices
         """
         w = self._which_signatures(signatures_limit=signatures_limit, associated=associated)
-
         # Generate signature weight outputs
         if self.output_folder:
             f = open(os.path.join(self.output_folder, '{}_deconstructsigs_signature_weights.csv'.format(
@@ -289,7 +288,7 @@ class DeconstructSigs(object):
         _, _, flat_counts = self._get_alphabetical_flat_bins_and_counts()
 
         # Normalize the tumor data
-        T = np.array(flat_counts) / sum(flat_counts)
+        T = np.array(flat_counts).astype(float) / sum(flat_counts)
         w = self._seed_weights(T, self.S, ignorable_indices=ignorable_indices)
         self._status("Initial seed weights assigned:")
         self._print_normalized_weights(w)
