@@ -13,6 +13,7 @@ setup (
 		'pandas',
 		'numpy',
 		'matplotlib',
-		'scipy'
+		'scipy',
+		'pyfaidx'
 	]
 )
