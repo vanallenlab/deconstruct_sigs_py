@@ -1,4 +1,3 @@
-import re
 import os
 import itertools
 import logging
@@ -104,9 +103,12 @@ class DeconstructSigs(object):
 
         # Remove unnecessary columns from the cosmic signatures data and make the S matrix. Note: the substitution
         # contexts are in alphabetical order (A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C... etc.)
-        self.S = np.array(self.cosmic_signatures.select(
-            lambda x: not re.search("(Substitution Type)|(Trinucleotide)|(Somatic Mutation Type)|(Unnamed)", x),
-            axis=1))
+        self.S = np.array(self.cosmic_signatures.loc[:,
+            [c for c in self.cosmic_signatures.columns if c.startswith('Signature')]])
+        # warning in python3
+        # np.array(self.cosmic_signatures.select(
+        #    lambda x: not re.search("(Substitution Type)|(Trinucleotide)|(Somatic Mutation Type)|(Unnamed)", x),
+        #    axis=1))
 
         if context_counts is None:
             self._load_mafs()
