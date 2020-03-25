@@ -2,4 +2,4 @@ pandas
 numpy
 matplotlib
 scipy
-sklearn
+pyfaidx

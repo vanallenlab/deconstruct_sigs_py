@@ -7,7 +7,7 @@ Signature 5	Somatic ERCC2 Signatures
 Signature 6	Defective DNA mismatch repair and microsatellite instability
 Signature 7	UV exposure
 Signature 8	Unknown
-Signature 9	Characterized by a pattern of mutations that has been attributed to polymerase η
+Signature 9	Characterized by a pattern of mutations that has been attributed to polymerase eta
 Signature 10	POLE
 Signature 11	Temozolomide exposure
 Signature 12	Unknown
